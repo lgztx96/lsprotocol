@@ -8,6 +8,32 @@
 #include <glaze/glaze.hpp>
 #include <unordered_map>
 
+static constexpr char ascill_toupper(char c) noexcept {
+    return (c >= 'a' && c <= 'z') ? static_cast<char>(c - 'a' + 'A') : c;
+}
+
+static constexpr std::string to_camel_case(std::string_view sv) {
+    std::string out;
+    out.reserve(sv.size());
+    bool upper_next = false;
+    for (size_t i = 0; i < sv.size(); ++i) {
+        char c = sv[i];
+        if (c == '_' && i + 1 < sv.size()) {
+            upper_next = true;
+        }
+        else {
+            if (upper_next) {
+                out.push_back(ascill_toupper(c));
+                upper_next = false;
+            }
+            else {
+                out.push_back(c);
+            }
+        }
+    }
+    return out;
+}
+
 // The definition of a symbol represented as one or many {@link Location locations}.
 // For most programming languages there is only one location at which a symbol is
 // defined.
@@ -32,7 +58,7 @@ using LSPArray = std::vector<LSPAny>;
 // convenience it is allowed and assumed that all these properties are
 // optional as well.
 // @since 3.17.0
-using LSPAny = std::variant<LSPObject, LSPArray, std::string, int, unsigned int, double, bool>;
+using LSPAny = std::variant<LSPObject, LSPArray, std::string, int, unsigned int, double, bool, std::nullptr_t>;
 
 // The declaration of a symbol representation as one or many {@link Location locations}.
 using Declaration = std::variant<Location, std::vector<Location>>;
@@ -1125,12 +1151,28 @@ struct ImplementationParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<ImplementationParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Represents a location inside a resource, such as a line
 // inside a text file.
 struct Location
 {
     Range range;
     std::string uri;
+};
+
+template <>
+struct glz::meta<Location> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct ImplementationRegistrationOptions
@@ -1144,23 +1186,23 @@ struct ImplementationRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, ImplementationRegistrationOptions> {
-        template <auto Opts>
-        static void op(const ImplementationRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "id", v.id,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, ImplementationRegistrationOptions> {
+    template <auto Opts>
+    static void op(const ImplementationRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "id", v.id,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 struct TypeDefinitionParams
 {
     // An optional token that a server can use to report partial results (e.g. streaming) to
@@ -1174,6 +1216,14 @@ struct TypeDefinitionParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<TypeDefinitionParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct TypeDefinitionRegistrationOptions
 {
     // A document selector to identify the scope of the registration. If set to null
@@ -1185,23 +1235,23 @@ struct TypeDefinitionRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, TypeDefinitionRegistrationOptions> {
-        template <auto Opts>
-        static void op(const TypeDefinitionRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "id", v.id,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, TypeDefinitionRegistrationOptions> {
+    template <auto Opts>
+    static void op(const TypeDefinitionRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "id", v.id,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // A workspace folder inside a client.
 struct WorkspaceFolder
 {
@@ -1212,6 +1262,14 @@ struct WorkspaceFolder
     std::string uri;
 };
 
+template <>
+struct glz::meta<WorkspaceFolder> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // The parameters of a `workspace/didChangeWorkspaceFolders` notification.
 struct DidChangeWorkspaceFoldersParams
 {
@@ -1219,10 +1277,26 @@ struct DidChangeWorkspaceFoldersParams
     WorkspaceFoldersChangeEvent event;
 };
 
+template <>
+struct glz::meta<DidChangeWorkspaceFoldersParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // The parameters of a configuration request.
 struct ConfigurationParams
 {
     std::vector<ConfigurationItem> items;
+};
+
+template <>
+struct glz::meta<ConfigurationParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Parameters for a {@link DocumentColorRequest}.
@@ -1237,6 +1311,14 @@ struct DocumentColorParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<DocumentColorParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Represents a color range from a document.
 struct ColorInformation
 {
@@ -1244,6 +1326,14 @@ struct ColorInformation
     Color color;
     // The range in the document where this color appears.
     Range range;
+};
+
+template <>
+struct glz::meta<ColorInformation> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct DocumentColorRegistrationOptions
@@ -1257,23 +1347,23 @@ struct DocumentColorRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, DocumentColorRegistrationOptions> {
-        template <auto Opts>
-        static void op(const DocumentColorRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "id", v.id,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, DocumentColorRegistrationOptions> {
+    template <auto Opts>
+    static void op(const DocumentColorRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "id", v.id,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // Parameters for a {@link ColorPresentationRequest}.
 struct ColorPresentationParams
 {
@@ -1288,6 +1378,14 @@ struct ColorPresentationParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<ColorPresentationParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct ColorPresentation
@@ -1305,9 +1403,25 @@ struct ColorPresentation
     std::optional<TextEdit> text_edit;
 };
 
+template <>
+struct glz::meta<ColorPresentation> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct WorkDoneProgressOptions
 {
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<WorkDoneProgressOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // General text document registration options.
@@ -1318,21 +1432,21 @@ struct TextDocumentRegistrationOptions
     std::optional<DocumentSelector> document_selector;
 };
 
-namespace glz {
-    template <> struct to<JSON, TextDocumentRegistrationOptions> {
-        template <auto Opts>
-        static void op(const TextDocumentRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, TextDocumentRegistrationOptions> {
+    template <auto Opts>
+    static void op(const TextDocumentRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // Parameters for a {@link FoldingRangeRequest}.
 struct FoldingRangeParams
 {
@@ -1343,6 +1457,14 @@ struct FoldingRangeParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<FoldingRangeParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Represents a folding range. To be valid, start and end line must be bigger than zero and smaller
@@ -1371,6 +1493,14 @@ struct FoldingRange
     unsigned int start_line;
 };
 
+template <>
+struct glz::meta<FoldingRange> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct FoldingRangeRegistrationOptions
 {
     // A document selector to identify the scope of the registration. If set to null
@@ -1382,23 +1512,23 @@ struct FoldingRangeRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, FoldingRangeRegistrationOptions> {
-        template <auto Opts>
-        static void op(const FoldingRangeRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "id", v.id,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, FoldingRangeRegistrationOptions> {
+    template <auto Opts>
+    static void op(const FoldingRangeRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "id", v.id,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 struct DeclarationParams
 {
     // An optional token that a server can use to report partial results (e.g. streaming) to
@@ -1412,6 +1542,14 @@ struct DeclarationParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<DeclarationParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct DeclarationRegistrationOptions
 {
     // A document selector to identify the scope of the registration. If set to null
@@ -1423,23 +1561,23 @@ struct DeclarationRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, DeclarationRegistrationOptions> {
-        template <auto Opts>
-        static void op(const DeclarationRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "id", v.id,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, DeclarationRegistrationOptions> {
+    template <auto Opts>
+    static void op(const DeclarationRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "id", v.id,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // A parameter literal used in selection range requests.
 struct SelectionRangeParams
 {
@@ -1454,6 +1592,14 @@ struct SelectionRangeParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<SelectionRangeParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A selection range represents a part of a selection hierarchy. A selection range
 // may have a parent selection range that contains it.
 struct SelectionRange
@@ -1462,6 +1608,14 @@ struct SelectionRange
     std::optional<SelectionRange> parent;
     // The {@link Range range} of this selection range.
     Range range;
+};
+
+template <>
+struct glz::meta<SelectionRange> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct SelectionRangeRegistrationOptions
@@ -1475,33 +1629,49 @@ struct SelectionRangeRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, SelectionRangeRegistrationOptions> {
-        template <auto Opts>
-        static void op(const SelectionRangeRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "id", v.id,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, SelectionRangeRegistrationOptions> {
+    template <auto Opts>
+    static void op(const SelectionRangeRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "id", v.id,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 struct WorkDoneProgressCreateParams
 {
     // The token to be used to report progress.
     ProgressToken token;
 };
 
+template <>
+struct glz::meta<WorkDoneProgressCreateParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct WorkDoneProgressCancelParams
 {
     // The token to be used to report progress.
     ProgressToken token;
+};
+
+template <>
+struct glz::meta<WorkDoneProgressCancelParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The parameter of a `textDocument/prepareCallHierarchy` request.
@@ -1515,6 +1685,14 @@ struct CallHierarchyPrepareParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<CallHierarchyPrepareParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Represents programming constructs like functions or constructors in the context
@@ -1543,6 +1721,14 @@ struct CallHierarchyItem
     std::string uri;
 };
 
+template <>
+struct glz::meta<CallHierarchyItem> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Call hierarchy options used during static or dynamic registration.
 // 
 // @since 3.16.0
@@ -1557,23 +1743,23 @@ struct CallHierarchyRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, CallHierarchyRegistrationOptions> {
-        template <auto Opts>
-        static void op(const CallHierarchyRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "id", v.id,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, CallHierarchyRegistrationOptions> {
+    template <auto Opts>
+    static void op(const CallHierarchyRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "id", v.id,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // The parameter of a `callHierarchy/incomingCalls` request.
 // 
 // @since 3.16.0
@@ -1587,6 +1773,14 @@ struct CallHierarchyIncomingCallsParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<CallHierarchyIncomingCallsParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Represents an incoming call, e.g. a caller of a method or constructor.
 // 
 // @since 3.16.0
@@ -1597,6 +1791,14 @@ struct CallHierarchyIncomingCall
     // The ranges at which the calls appear. This is relative to the caller
     // denoted by {@link CallHierarchyIncomingCall.from `this.from`}.
     std::vector<Range> from_ranges;
+};
+
+template <>
+struct glz::meta<CallHierarchyIncomingCall> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The parameter of a `callHierarchy/outgoingCalls` request.
@@ -1612,6 +1814,14 @@ struct CallHierarchyOutgoingCallsParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<CallHierarchyOutgoingCallsParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Represents an outgoing call, e.g. calling a getter from a method or a method from a constructor etc.
 // 
 // @since 3.16.0
@@ -1623,6 +1833,14 @@ struct CallHierarchyOutgoingCall
     std::vector<Range> from_ranges;
     // The item that is called.
     CallHierarchyItem to;
+};
+
+template <>
+struct glz::meta<CallHierarchyOutgoingCall> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.16.0
@@ -1637,6 +1855,14 @@ struct SemanticTokensParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<SemanticTokensParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.16.0
 struct SemanticTokens
 {
@@ -1649,10 +1875,26 @@ struct SemanticTokens
     std::optional<std::string> result_id;
 };
 
+template <>
+struct glz::meta<SemanticTokens> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.16.0
 struct SemanticTokensPartialResult
 {
     std::vector<unsigned int> data;
+};
+
+template <>
+struct glz::meta<SemanticTokensPartialResult> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.16.0
@@ -1674,26 +1916,26 @@ struct SemanticTokensRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, SemanticTokensRegistrationOptions> {
-        template <auto Opts>
-        static void op(const SemanticTokensRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "full", v.full,
-                "id", v.id,
-                "legend", v.legend,
-                "range", v.range,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, SemanticTokensRegistrationOptions> {
+    template <auto Opts>
+    static void op(const SemanticTokensRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "full", v.full,
+            "id", v.id,
+            "legend", v.legend,
+            "range", v.range,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // @since 3.16.0
 struct SemanticTokensDeltaParams
 {
@@ -1709,6 +1951,14 @@ struct SemanticTokensDeltaParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<SemanticTokensDeltaParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.16.0
 struct SemanticTokensDelta
 {
@@ -1717,10 +1967,26 @@ struct SemanticTokensDelta
     std::optional<std::string> result_id;
 };
 
+template <>
+struct glz::meta<SemanticTokensDelta> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.16.0
 struct SemanticTokensDeltaPartialResult
 {
     std::vector<SemanticTokensEdit> edits;
+};
+
+template <>
+struct glz::meta<SemanticTokensDeltaPartialResult> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.16.0
@@ -1735,6 +2001,14 @@ struct SemanticTokensRangeParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<SemanticTokensRangeParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Params to show a resource in the UI.
@@ -1760,6 +2034,14 @@ struct ShowDocumentParams
     std::string uri;
 };
 
+template <>
+struct glz::meta<ShowDocumentParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // The result of a showDocument request.
 // 
 // @since 3.16.0
@@ -1767,6 +2049,14 @@ struct ShowDocumentResult
 {
     // A boolean indicating if the show was successful.
     bool success;
+};
+
+template <>
+struct glz::meta<ShowDocumentResult> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct LinkedEditingRangeParams
@@ -1777,6 +2067,14 @@ struct LinkedEditingRangeParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<LinkedEditingRangeParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The result of a linked editing range request.
@@ -1793,6 +2091,14 @@ struct LinkedEditingRanges
     std::optional<std::string> word_pattern;
 };
 
+template <>
+struct glz::meta<LinkedEditingRanges> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct LinkedEditingRangeRegistrationOptions
 {
     // A document selector to identify the scope of the registration. If set to null
@@ -1804,23 +2110,23 @@ struct LinkedEditingRangeRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, LinkedEditingRangeRegistrationOptions> {
-        template <auto Opts>
-        static void op(const LinkedEditingRangeRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "id", v.id,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, LinkedEditingRangeRegistrationOptions> {
+    template <auto Opts>
+    static void op(const LinkedEditingRangeRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "id", v.id,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // The parameters sent in notifications/requests for user-initiated creation of
 // files.
 // 
@@ -1829,6 +2135,14 @@ struct CreateFilesParams
 {
     // An array of all files/folders created in this operation.
     std::vector<FileCreate> files;
+};
+
+template <>
+struct glz::meta<CreateFilesParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A workspace edit represents changes to many resources managed in the workspace. The edit
@@ -1867,6 +2181,14 @@ struct WorkspaceEdit
     std::optional<std::vector<std::variant<TextDocumentEdit, CreateFile, RenameFile, DeleteFile>>> document_changes;
 };
 
+template <>
+struct glz::meta<WorkspaceEdit> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // The options to register for file operations.
 // 
 // @since 3.16.0
@@ -1874,6 +2196,14 @@ struct FileOperationRegistrationOptions
 {
     // The actual filters.
     std::vector<FileOperationFilter> filters;
+};
+
+template <>
+struct glz::meta<FileOperationRegistrationOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The parameters sent in notifications/requests for user-initiated renames of
@@ -1887,6 +2217,14 @@ struct RenameFilesParams
     std::vector<FileRename> files;
 };
 
+template <>
+struct glz::meta<RenameFilesParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // The parameters sent in notifications/requests for user-initiated deletes of
 // files.
 // 
@@ -1895,6 +2233,14 @@ struct DeleteFilesParams
 {
     // An array of all files/folders deleted in this operation.
     std::vector<FileDelete> files;
+};
+
+template <>
+struct glz::meta<DeleteFilesParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct MonikerParams
@@ -1908,6 +2254,14 @@ struct MonikerParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<MonikerParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Moniker definition to match LSIF 0.5 moniker definition.
@@ -1926,6 +2280,14 @@ struct Moniker
     UniquenessLevel unique;
 };
 
+template <>
+struct glz::meta<Moniker> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct MonikerRegistrationOptions
 {
     // A document selector to identify the scope of the registration. If set to null
@@ -1934,22 +2296,22 @@ struct MonikerRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, MonikerRegistrationOptions> {
-        template <auto Opts>
-        static void op(const MonikerRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, MonikerRegistrationOptions> {
+    template <auto Opts>
+    static void op(const MonikerRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // The parameter of a `textDocument/prepareTypeHierarchy` request.
 // 
 // @since 3.17.0
@@ -1961,6 +2323,14 @@ struct TypeHierarchyPrepareParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<TypeHierarchyPrepareParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.17.0
@@ -1990,6 +2360,14 @@ struct TypeHierarchyItem
     std::string uri;
 };
 
+template <>
+struct glz::meta<TypeHierarchyItem> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Type hierarchy options used during static or dynamic registration.
 // 
 // @since 3.17.0
@@ -2004,23 +2382,23 @@ struct TypeHierarchyRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, TypeHierarchyRegistrationOptions> {
-        template <auto Opts>
-        static void op(const TypeHierarchyRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "id", v.id,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, TypeHierarchyRegistrationOptions> {
+    template <auto Opts>
+    static void op(const TypeHierarchyRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "id", v.id,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // The parameter of a `typeHierarchy/supertypes` request.
 // 
 // @since 3.17.0
@@ -2034,6 +2412,14 @@ struct TypeHierarchySupertypesParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<TypeHierarchySupertypesParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // The parameter of a `typeHierarchy/subtypes` request.
 // 
 // @since 3.17.0
@@ -2045,6 +2431,14 @@ struct TypeHierarchySubtypesParams
     std::optional<ProgressToken> partial_result_token;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<TypeHierarchySubtypesParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A parameter literal used in inline value requests.
@@ -2063,6 +2457,14 @@ struct InlineValueParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<InlineValueParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Inline value options used during static or dynamic registration.
 // 
 // @since 3.17.0
@@ -2077,23 +2479,23 @@ struct InlineValueRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, InlineValueRegistrationOptions> {
-        template <auto Opts>
-        static void op(const InlineValueRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "id", v.id,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, InlineValueRegistrationOptions> {
+    template <auto Opts>
+    static void op(const InlineValueRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "id", v.id,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // A parameter literal used in inlay hint requests.
 // 
 // @since 3.17.0
@@ -2105,6 +2507,14 @@ struct InlayHintParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<InlayHintParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Inlay hint information.
@@ -2150,6 +2560,14 @@ struct InlayHint
     std::optional<std::variant<std::string, MarkupContent>> tooltip;
 };
 
+template <>
+struct glz::meta<InlayHint> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Inlay hint options used during static or dynamic registration.
 // 
 // @since 3.17.0
@@ -2167,24 +2585,24 @@ struct InlayHintRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, InlayHintRegistrationOptions> {
-        template <auto Opts>
-        static void op(const InlayHintRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "id", v.id,
-                "resolveProvider", v.resolve_provider,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, InlayHintRegistrationOptions> {
+    template <auto Opts>
+    static void op(const InlayHintRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "id", v.id,
+            "resolveProvider", v.resolve_provider,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // Parameters of the document diagnostic request.
 // 
 // @since 3.17.0
@@ -2203,6 +2621,14 @@ struct DocumentDiagnosticParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<DocumentDiagnosticParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A partial result for a document diagnostic report.
 // 
 // @since 3.17.0
@@ -2211,12 +2637,28 @@ struct DocumentDiagnosticReportPartialResult
     std::unordered_map<std::string, std::variant<FullDocumentDiagnosticReport, UnchangedDocumentDiagnosticReport>> related_documents;
 };
 
+template <>
+struct glz::meta<DocumentDiagnosticReportPartialResult> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Cancellation data returned from a diagnostic request.
 // 
 // @since 3.17.0
 struct DiagnosticServerCancellationData
 {
     bool retrigger_request;
+};
+
+template <>
+struct glz::meta<DiagnosticServerCancellationData> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Diagnostic registration options.
@@ -2243,26 +2685,26 @@ struct DiagnosticRegistrationOptions
     bool workspace_diagnostics;
 };
 
-namespace glz {
-    template <> struct to<JSON, DiagnosticRegistrationOptions> {
-        template <auto Opts>
-        static void op(const DiagnosticRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "id", v.id,
-                "identifier", v.identifier,
-                "interFileDependencies", v.inter_file_dependencies,
-                "workDoneProgress", v.work_done_progress,
-                "workspaceDiagnostics", v.workspace_diagnostics,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, DiagnosticRegistrationOptions> {
+    template <auto Opts>
+    static void op(const DiagnosticRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "id", v.id,
+            "identifier", v.identifier,
+            "interFileDependencies", v.inter_file_dependencies,
+            "workDoneProgress", v.work_done_progress,
+            "workspaceDiagnostics", v.workspace_diagnostics,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // Parameters of the workspace diagnostic request.
 // 
 // @since 3.17.0
@@ -2280,6 +2722,14 @@ struct WorkspaceDiagnosticParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<WorkspaceDiagnosticParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A workspace diagnostic report.
 // 
 // @since 3.17.0
@@ -2288,12 +2738,28 @@ struct WorkspaceDiagnosticReport
     std::vector<WorkspaceDocumentDiagnosticReport> items;
 };
 
+template <>
+struct glz::meta<WorkspaceDiagnosticReport> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A partial result for a workspace diagnostic report.
 // 
 // @since 3.17.0
 struct WorkspaceDiagnosticReportPartialResult
 {
     std::vector<WorkspaceDocumentDiagnosticReport> items;
+};
+
+template <>
+struct glz::meta<WorkspaceDiagnosticReportPartialResult> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The params sent in an open notebook document notification.
@@ -2306,6 +2772,14 @@ struct DidOpenNotebookDocumentParams
     std::vector<TextDocumentItem> cell_text_documents;
     // The notebook document that got opened.
     NotebookDocument notebook_document;
+};
+
+template <>
+struct glz::meta<DidOpenNotebookDocumentParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Registration options specific to a notebook.
@@ -2321,6 +2795,14 @@ struct NotebookDocumentSyncRegistrationOptions
     // Whether save notification should be forwarded to
     // the server. Will only be honored if mode === `notebook`.
     std::optional<bool> save;
+};
+
+template <>
+struct glz::meta<NotebookDocumentSyncRegistrationOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The params sent in a change notebook document notification.
@@ -2349,6 +2831,14 @@ struct DidChangeNotebookDocumentParams
     VersionedNotebookDocumentIdentifier notebook_document;
 };
 
+template <>
+struct glz::meta<DidChangeNotebookDocumentParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // The params sent in a save notebook document notification.
 // 
 // @since 3.17.0
@@ -2356,6 +2846,14 @@ struct DidSaveNotebookDocumentParams
 {
     // The notebook document that got saved.
     NotebookDocumentIdentifier notebook_document;
+};
+
+template <>
+struct glz::meta<DidSaveNotebookDocumentParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The params sent in a close notebook document notification.
@@ -2368,6 +2866,14 @@ struct DidCloseNotebookDocumentParams
     std::vector<TextDocumentIdentifier> cell_text_documents;
     // The notebook document that got closed.
     NotebookDocumentIdentifier notebook_document;
+};
+
+template <>
+struct glz::meta<DidCloseNotebookDocumentParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A parameter literal used in inline completion requests.
@@ -2387,6 +2893,14 @@ struct InlineCompletionParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<InlineCompletionParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Represents a collection of {@link InlineCompletionItem inline completion items} to be presented in the editor.
 // 
 // @since 3.18.0
@@ -2395,6 +2909,14 @@ struct InlineCompletionList
 {
     // The inline completion items
     std::vector<InlineCompletionItem> items;
+};
+
+template <>
+struct glz::meta<InlineCompletionList> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // An inline completion item represents a text snippet that is proposed inline to complete text that is being typed.
@@ -2413,6 +2935,14 @@ struct InlineCompletionItem
     std::optional<Range> range;
 };
 
+template <>
+struct glz::meta<InlineCompletionItem> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Inline completion options used during static or dynamic registration.
 // 
 // @since 3.18.0
@@ -2428,23 +2958,23 @@ struct InlineCompletionRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, InlineCompletionRegistrationOptions> {
-        template <auto Opts>
-        static void op(const InlineCompletionRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "id", v.id,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, InlineCompletionRegistrationOptions> {
+    template <auto Opts>
+    static void op(const InlineCompletionRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "id", v.id,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // Parameters for the `workspace/textDocumentContent` request.
 // 
 // @since 3.18.0
@@ -2453,6 +2983,14 @@ struct TextDocumentContentParams
 {
     // The uri of the text document.
     std::string uri;
+};
+
+template <>
+struct glz::meta<TextDocumentContentParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Result of the `workspace/textDocumentContent` request.
@@ -2468,6 +3006,14 @@ struct TextDocumentContentResult
     std::string text;
 };
 
+template <>
+struct glz::meta<TextDocumentContentResult> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Text document content provider registration options.
 // 
 // @since 3.18.0
@@ -2481,6 +3027,14 @@ struct TextDocumentContentRegistrationOptions
     std::vector<std::string> schemes;
 };
 
+template <>
+struct glz::meta<TextDocumentContentRegistrationOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Parameters for the `workspace/textDocumentContent/refresh` request.
 // 
 // @since 3.18.0
@@ -2491,14 +3045,38 @@ struct TextDocumentContentRefreshParams
     std::string uri;
 };
 
+template <>
+struct glz::meta<TextDocumentContentRefreshParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct RegistrationParams
 {
     std::vector<Registration> registrations;
 };
 
+template <>
+struct glz::meta<RegistrationParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct UnregistrationParams
 {
     std::vector<Unregistration> unregisterations;
+};
+
+template <>
+struct glz::meta<UnregistrationParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct InitializeParams
@@ -2551,32 +3129,32 @@ struct InitializeParams
     std::optional<std::vector<WorkspaceFolder>> workspace_folders;
 };
 
-namespace glz {
-    template <> struct to<JSON, InitializeParams> {
-        template <auto Opts>
-        static void op(const InitializeParams& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "capabilities", v.capabilities,
-                "clientInfo", v.client_info,
-                "initializationOptions", v.initialization_options,
-                "locale", v.locale,
-                "rootPath", v.root_path,
-                "trace", v.trace,
-                "workDoneToken", v.work_done_token,
-                "workspaceFolders", v.workspace_folders,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.process_id.has_value()) {
-                optional_fields.try_emplace("processId", *v.process_id);
-            }
-            if (v.root_uri.has_value()) {
-                optional_fields.try_emplace("rootUri", *v.root_uri);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, InitializeParams> {
+    template <auto Opts>
+    static void op(const InitializeParams& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "capabilities", v.capabilities,
+            "clientInfo", v.client_info,
+            "initializationOptions", v.initialization_options,
+            "locale", v.locale,
+            "rootPath", v.root_path,
+            "trace", v.trace,
+            "workDoneToken", v.work_done_token,
+            "workspaceFolders", v.workspace_folders,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.process_id.has_value()) {
+            optional_fields.try_emplace("processId", *v.process_id);
         }
-    };
-}
+        if (v.root_uri.has_value()) {
+            optional_fields.try_emplace("rootUri", *v.root_uri);
+        }
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // The result returned from an initialize request.
 struct InitializeResult
 {
@@ -2586,6 +3164,14 @@ struct InitializeResult
     // 
     // @since 3.15.0
     std::optional<ServerInfo> server_info;
+};
+
+template <>
+struct glz::meta<InitializeResult> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The data type of the ResponseError if the
@@ -2599,8 +3185,24 @@ struct InitializeError
     bool retry;
 };
 
+template <>
+struct glz::meta<InitializeError> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct InitializedParams
 {
+};
+
+template <>
+struct glz::meta<InitializedParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The parameters of a change configuration notification.
@@ -2610,9 +3212,25 @@ struct DidChangeConfigurationParams
     LSPAny settings;
 };
 
+template <>
+struct glz::meta<DidChangeConfigurationParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct DidChangeConfigurationRegistrationOptions
 {
     std::optional<std::variant<std::string, std::vector<std::string>>> section;
+};
+
+template <>
+struct glz::meta<DidChangeConfigurationRegistrationOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The parameters of a notification message.
@@ -2622,6 +3240,14 @@ struct ShowMessageParams
     std::string message;
     // The message type. See {@link MessageType}
     MessageType type;
+};
+
+template <>
+struct glz::meta<ShowMessageParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct ShowMessageRequestParams
@@ -2634,10 +3260,26 @@ struct ShowMessageRequestParams
     MessageType type;
 };
 
+template <>
+struct glz::meta<ShowMessageRequestParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct MessageActionItem
 {
     // A short title like 'Retry', 'Open Log' etc.
     std::string title;
+};
+
+template <>
+struct glz::meta<MessageActionItem> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The log message parameters.
@@ -2649,11 +3291,27 @@ struct LogMessageParams
     MessageType type;
 };
 
+template <>
+struct glz::meta<LogMessageParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // The parameters sent in an open text document notification
 struct DidOpenTextDocumentParams
 {
     // The document that was opened.
     TextDocumentItem text_document;
+};
+
+template <>
+struct glz::meta<DidOpenTextDocumentParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The change text document notification's parameters.
@@ -2677,6 +3335,14 @@ struct DidChangeTextDocumentParams
     VersionedTextDocumentIdentifier text_document;
 };
 
+template <>
+struct glz::meta<DidChangeTextDocumentParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Describe options to be used when registered for text document change events.
 struct TextDocumentChangeRegistrationOptions
 {
@@ -2687,27 +3353,35 @@ struct TextDocumentChangeRegistrationOptions
     TextDocumentSyncKind sync_kind;
 };
 
-namespace glz {
-    template <> struct to<JSON, TextDocumentChangeRegistrationOptions> {
-        template <auto Opts>
-        static void op(const TextDocumentChangeRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "syncKind", v.sync_kind,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, TextDocumentChangeRegistrationOptions> {
+    template <auto Opts>
+    static void op(const TextDocumentChangeRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "syncKind", v.sync_kind,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // The parameters sent in a close text document notification
 struct DidCloseTextDocumentParams
 {
     // The document that was closed.
     TextDocumentIdentifier text_document;
+};
+
+template <>
+struct glz::meta<DidCloseTextDocumentParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The parameters sent in a save text document notification
@@ -2720,6 +3394,14 @@ struct DidSaveTextDocumentParams
     TextDocumentIdentifier text_document;
 };
 
+template <>
+struct glz::meta<DidSaveTextDocumentParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Save registration options.
 struct TextDocumentSaveRegistrationOptions
 {
@@ -2730,22 +3412,22 @@ struct TextDocumentSaveRegistrationOptions
     std::optional<bool> include_text;
 };
 
-namespace glz {
-    template <> struct to<JSON, TextDocumentSaveRegistrationOptions> {
-        template <auto Opts>
-        static void op(const TextDocumentSaveRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "includeText", v.include_text,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, TextDocumentSaveRegistrationOptions> {
+    template <auto Opts>
+    static void op(const TextDocumentSaveRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "includeText", v.include_text,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // The parameters sent in a will save text document notification.
 struct WillSaveTextDocumentParams
 {
@@ -2753,6 +3435,14 @@ struct WillSaveTextDocumentParams
     TextDocumentSaveReason reason;
     // The document that will be saved.
     TextDocumentIdentifier text_document;
+};
+
+template <>
+struct glz::meta<WillSaveTextDocumentParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A text edit applicable to a text document.
@@ -2766,6 +3456,14 @@ struct TextEdit
     Range range;
 };
 
+template <>
+struct glz::meta<TextEdit> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // The watched files change notification's parameters.
 struct DidChangeWatchedFilesParams
 {
@@ -2773,11 +3471,27 @@ struct DidChangeWatchedFilesParams
     std::vector<FileEvent> changes;
 };
 
+template <>
+struct glz::meta<DidChangeWatchedFilesParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Describe options to be used when registered for text document change events.
 struct DidChangeWatchedFilesRegistrationOptions
 {
     // The watchers to register.
     std::vector<FileSystemWatcher> watchers;
+};
+
+template <>
+struct glz::meta<DidChangeWatchedFilesRegistrationOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The publish diagnostic notification's parameters.
@@ -2791,6 +3505,14 @@ struct PublishDiagnosticsParams
     // 
     // @since 3.15.0
     std::optional<int> version;
+};
+
+template <>
+struct glz::meta<PublishDiagnosticsParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Completion parameters
@@ -2808,6 +3530,14 @@ struct CompletionParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<CompletionParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A completion item represents a text snippet that is
@@ -2933,6 +3663,14 @@ struct CompletionItem
     std::optional<std::string> text_edit_text;
 };
 
+template <>
+struct glz::meta<CompletionItem> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Represents a collection of {@link CompletionItem completion items} to be presented
 // in the editor.
 struct CompletionList
@@ -2980,6 +3718,14 @@ struct CompletionList
     std::vector<CompletionItem> items;
 };
 
+template <>
+struct glz::meta<CompletionList> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Registration options for a {@link CompletionRequest}.
 struct CompletionRegistrationOptions
 {
@@ -3015,26 +3761,26 @@ struct CompletionRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, CompletionRegistrationOptions> {
-        template <auto Opts>
-        static void op(const CompletionRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "allCommitCharacters", v.all_commit_characters,
-                "completionItem", v.completion_item,
-                "resolveProvider", v.resolve_provider,
-                "triggerCharacters", v.trigger_characters,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, CompletionRegistrationOptions> {
+    template <auto Opts>
+    static void op(const CompletionRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "allCommitCharacters", v.all_commit_characters,
+            "completionItem", v.completion_item,
+            "resolveProvider", v.resolve_provider,
+            "triggerCharacters", v.trigger_characters,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // Parameters for a {@link HoverRequest}.
 struct HoverParams
 {
@@ -3044,6 +3790,14 @@ struct HoverParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<HoverParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The result of a hover request.
@@ -3056,6 +3810,14 @@ struct Hover
     std::optional<Range> range;
 };
 
+template <>
+struct glz::meta<Hover> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Registration options for a {@link HoverRequest}.
 struct HoverRegistrationOptions
 {
@@ -3065,22 +3827,22 @@ struct HoverRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, HoverRegistrationOptions> {
-        template <auto Opts>
-        static void op(const HoverRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, HoverRegistrationOptions> {
+    template <auto Opts>
+    static void op(const HoverRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // Parameters for a {@link SignatureHelpRequest}.
 struct SignatureHelpParams
 {
@@ -3095,6 +3857,14 @@ struct SignatureHelpParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<SignatureHelpParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Signature help represents the signature of something
@@ -3133,20 +3903,14 @@ struct SignatureHelp
     std::vector<SignatureInformation> signatures;
 };
 
-namespace glz {
-    template <> struct to<JSON, SignatureHelp> {
-        template <auto Opts>
-        static void op(const SignatureHelp& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "activeParameter", v.active_parameter,
-                "activeSignature", v.active_signature,
-                "signatures", v.signatures,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            serialize<JSON>::op<Opts>(obj, ctx, buffer, iter);
-        }
-    };
-}
+template <>
+struct glz::meta<SignatureHelp> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Registration options for a {@link SignatureHelpRequest}.
 struct SignatureHelpRegistrationOptions
 {
@@ -3165,24 +3929,24 @@ struct SignatureHelpRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, SignatureHelpRegistrationOptions> {
-        template <auto Opts>
-        static void op(const SignatureHelpRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "retriggerCharacters", v.retrigger_characters,
-                "triggerCharacters", v.trigger_characters,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, SignatureHelpRegistrationOptions> {
+    template <auto Opts>
+    static void op(const SignatureHelpRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "retriggerCharacters", v.retrigger_characters,
+            "triggerCharacters", v.trigger_characters,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // Parameters for a {@link DefinitionRequest}.
 struct DefinitionParams
 {
@@ -3197,6 +3961,14 @@ struct DefinitionParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<DefinitionParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Registration options for a {@link DefinitionRequest}.
 struct DefinitionRegistrationOptions
 {
@@ -3206,22 +3978,22 @@ struct DefinitionRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, DefinitionRegistrationOptions> {
-        template <auto Opts>
-        static void op(const DefinitionRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, DefinitionRegistrationOptions> {
+    template <auto Opts>
+    static void op(const DefinitionRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // Parameters for a {@link ReferencesRequest}.
 struct ReferenceParams
 {
@@ -3237,6 +4009,14 @@ struct ReferenceParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<ReferenceParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Registration options for a {@link ReferencesRequest}.
 struct ReferenceRegistrationOptions
 {
@@ -3246,22 +4026,22 @@ struct ReferenceRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, ReferenceRegistrationOptions> {
-        template <auto Opts>
-        static void op(const ReferenceRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, ReferenceRegistrationOptions> {
+    template <auto Opts>
+    static void op(const ReferenceRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // Parameters for a {@link DocumentHighlightRequest}.
 struct DocumentHighlightParams
 {
@@ -3276,6 +4056,14 @@ struct DocumentHighlightParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<DocumentHighlightParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A document highlight is a range inside a text document which deserves
 // special attention. Usually a document highlight is visualized by changing
 // the background color of its range.
@@ -3287,6 +4075,14 @@ struct DocumentHighlight
     Range range;
 };
 
+template <>
+struct glz::meta<DocumentHighlight> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Registration options for a {@link DocumentHighlightRequest}.
 struct DocumentHighlightRegistrationOptions
 {
@@ -3296,22 +4092,22 @@ struct DocumentHighlightRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, DocumentHighlightRegistrationOptions> {
-        template <auto Opts>
-        static void op(const DocumentHighlightRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, DocumentHighlightRegistrationOptions> {
+    template <auto Opts>
+    static void op(const DocumentHighlightRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // Parameters for a {@link DocumentSymbolRequest}.
 struct DocumentSymbolParams
 {
@@ -3322,6 +4118,14 @@ struct DocumentSymbolParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<DocumentSymbolParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Represents information about programming constructs like variables, classes,
@@ -3357,6 +4161,14 @@ struct SymbolInformation
     std::optional<std::vector<SymbolTag>> tags;
 };
 
+template <>
+struct glz::meta<SymbolInformation> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Represents programming constructs like variables, classes, interfaces etc.
 // that appear in a document. Document symbols can be hierarchical and they
 // have two ranges: one that encloses its definition and one that points to
@@ -3389,6 +4201,14 @@ struct DocumentSymbol
     std::optional<std::vector<SymbolTag>> tags;
 };
 
+template <>
+struct glz::meta<DocumentSymbol> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Registration options for a {@link DocumentSymbolRequest}.
 struct DocumentSymbolRegistrationOptions
 {
@@ -3403,23 +4223,23 @@ struct DocumentSymbolRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, DocumentSymbolRegistrationOptions> {
-        template <auto Opts>
-        static void op(const DocumentSymbolRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "label", v.label,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, DocumentSymbolRegistrationOptions> {
+    template <auto Opts>
+    static void op(const DocumentSymbolRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "label", v.label,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // The parameters of a {@link CodeActionRequest}.
 struct CodeActionParams
 {
@@ -3434,6 +4254,14 @@ struct CodeActionParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<CodeActionParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Represents a reference to a command. Provides a title which
@@ -3454,6 +4282,14 @@ struct Command
     // @since 3.18.0
     // @proposed
     std::optional<std::string> tooltip;
+};
+
+template <>
+struct glz::meta<Command> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A code action represents a change that can be performed in code, e.g. to fix a problem or
@@ -3511,6 +4347,14 @@ struct CodeAction
     std::string title;
 };
 
+template <>
+struct glz::meta<CodeAction> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Registration options for a {@link CodeActionRequest}.
 struct CodeActionRegistrationOptions
 {
@@ -3546,25 +4390,25 @@ struct CodeActionRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, CodeActionRegistrationOptions> {
-        template <auto Opts>
-        static void op(const CodeActionRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "codeActionKinds", v.code_action_kinds,
-                "documentation", v.documentation,
-                "resolveProvider", v.resolve_provider,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, CodeActionRegistrationOptions> {
+    template <auto Opts>
+    static void op(const CodeActionRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "codeActionKinds", v.code_action_kinds,
+            "documentation", v.documentation,
+            "resolveProvider", v.resolve_provider,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // The parameters of a {@link WorkspaceSymbolRequest}.
 struct WorkspaceSymbolParams
 {
@@ -3582,6 +4426,14 @@ struct WorkspaceSymbolParams
     std::string query;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<WorkspaceSymbolParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A special workspace symbol that supports locations without a range.
@@ -3615,6 +4467,14 @@ struct WorkspaceSymbol
     std::optional<std::vector<SymbolTag>> tags;
 };
 
+template <>
+struct glz::meta<WorkspaceSymbol> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Registration options for a {@link WorkspaceSymbolRequest}.
 struct WorkspaceSymbolRegistrationOptions
 {
@@ -3624,6 +4484,14 @@ struct WorkspaceSymbolRegistrationOptions
     // @since 3.17.0
     std::optional<bool> resolve_provider;
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<WorkspaceSymbolRegistrationOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The parameters of a {@link CodeLensRequest}.
@@ -3636,6 +4504,14 @@ struct CodeLensParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<CodeLensParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A code lens represents a {@link Command command} that should be shown along with
@@ -3654,6 +4530,14 @@ struct CodeLens
     Range range;
 };
 
+template <>
+struct glz::meta<CodeLens> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Registration options for a {@link CodeLensRequest}.
 struct CodeLensRegistrationOptions
 {
@@ -3665,23 +4549,23 @@ struct CodeLensRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, CodeLensRegistrationOptions> {
-        template <auto Opts>
-        static void op(const CodeLensRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "resolveProvider", v.resolve_provider,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, CodeLensRegistrationOptions> {
+    template <auto Opts>
+    static void op(const CodeLensRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "resolveProvider", v.resolve_provider,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // The parameters of a {@link DocumentLinkRequest}.
 struct DocumentLinkParams
 {
@@ -3692,6 +4576,14 @@ struct DocumentLinkParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<DocumentLinkParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A document link is a range in a text document that links to an internal or external resource, like another
@@ -3715,6 +4607,14 @@ struct DocumentLink
     std::optional<std::string> tooltip;
 };
 
+template <>
+struct glz::meta<DocumentLink> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Registration options for a {@link DocumentLinkRequest}.
 struct DocumentLinkRegistrationOptions
 {
@@ -3726,23 +4626,23 @@ struct DocumentLinkRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, DocumentLinkRegistrationOptions> {
-        template <auto Opts>
-        static void op(const DocumentLinkRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "resolveProvider", v.resolve_provider,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, DocumentLinkRegistrationOptions> {
+    template <auto Opts>
+    static void op(const DocumentLinkRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "resolveProvider", v.resolve_provider,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // The parameters of a {@link DocumentFormattingRequest}.
 struct DocumentFormattingParams
 {
@@ -3754,6 +4654,14 @@ struct DocumentFormattingParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<DocumentFormattingParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Registration options for a {@link DocumentFormattingRequest}.
 struct DocumentFormattingRegistrationOptions
 {
@@ -3763,22 +4671,22 @@ struct DocumentFormattingRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, DocumentFormattingRegistrationOptions> {
-        template <auto Opts>
-        static void op(const DocumentFormattingRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, DocumentFormattingRegistrationOptions> {
+    template <auto Opts>
+    static void op(const DocumentFormattingRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // The parameters of a {@link DocumentRangeFormattingRequest}.
 struct DocumentRangeFormattingParams
 {
@@ -3790,6 +4698,14 @@ struct DocumentRangeFormattingParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<DocumentRangeFormattingParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Registration options for a {@link DocumentRangeFormattingRequest}.
@@ -3806,23 +4722,23 @@ struct DocumentRangeFormattingRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, DocumentRangeFormattingRegistrationOptions> {
-        template <auto Opts>
-        static void op(const DocumentRangeFormattingRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "rangesSupport", v.ranges_support,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, DocumentRangeFormattingRegistrationOptions> {
+    template <auto Opts>
+    static void op(const DocumentRangeFormattingRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "rangesSupport", v.ranges_support,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // The parameters of a {@link DocumentRangesFormattingRequest}.
 // 
 // @since 3.18.0
@@ -3837,6 +4753,14 @@ struct DocumentRangesFormattingParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<DocumentRangesFormattingParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The parameters of a {@link DocumentOnTypeFormattingRequest}.
@@ -3857,6 +4781,14 @@ struct DocumentOnTypeFormattingParams
     TextDocumentIdentifier text_document;
 };
 
+template <>
+struct glz::meta<DocumentOnTypeFormattingParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Registration options for a {@link DocumentOnTypeFormattingRequest}.
 struct DocumentOnTypeFormattingRegistrationOptions
 {
@@ -3869,23 +4801,23 @@ struct DocumentOnTypeFormattingRegistrationOptions
     std::optional<std::vector<std::string>> more_trigger_character;
 };
 
-namespace glz {
-    template <> struct to<JSON, DocumentOnTypeFormattingRegistrationOptions> {
-        template <auto Opts>
-        static void op(const DocumentOnTypeFormattingRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "firstTriggerCharacter", v.first_trigger_character,
-                "moreTriggerCharacter", v.more_trigger_character,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, DocumentOnTypeFormattingRegistrationOptions> {
+    template <auto Opts>
+    static void op(const DocumentOnTypeFormattingRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "firstTriggerCharacter", v.first_trigger_character,
+            "moreTriggerCharacter", v.more_trigger_character,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // The parameters of a {@link RenameRequest}.
 struct RenameParams
 {
@@ -3901,6 +4833,14 @@ struct RenameParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<RenameParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Registration options for a {@link RenameRequest}.
 struct RenameRegistrationOptions
 {
@@ -3914,23 +4854,23 @@ struct RenameRegistrationOptions
     std::optional<bool> work_done_progress;
 };
 
-namespace glz {
-    template <> struct to<JSON, RenameRegistrationOptions> {
-        template <auto Opts>
-        static void op(const RenameRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "prepareProvider", v.prepare_provider,
-                "workDoneProgress", v.work_done_progress,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.document_selector.has_value()) {
-                optional_fields.try_emplace("documentSelector", *v.document_selector);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, RenameRegistrationOptions> {
+    template <auto Opts>
+    static void op(const RenameRegistrationOptions& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "prepareProvider", v.prepare_provider,
+            "workDoneProgress", v.work_done_progress,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.document_selector.has_value()) {
+            optional_fields.try_emplace("documentSelector", *v.document_selector);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 struct PrepareRenameParams
 {
     // The position inside the text document.
@@ -3939,6 +4879,14 @@ struct PrepareRenameParams
     TextDocumentIdentifier text_document;
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<PrepareRenameParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The parameters of a {@link ExecuteCommandRequest}.
@@ -3952,12 +4900,28 @@ struct ExecuteCommandParams
     std::optional<ProgressToken> work_done_token;
 };
 
+template <>
+struct glz::meta<ExecuteCommandParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Registration options for a {@link ExecuteCommandRequest}.
 struct ExecuteCommandRegistrationOptions
 {
     // The commands to be executed on the server
     std::vector<std::string> commands;
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<ExecuteCommandRegistrationOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The parameters passed via an apply workspace edit request.
@@ -3976,6 +4940,14 @@ struct ApplyWorkspaceEditParams
     std::optional<WorkspaceEditMetadata> metadata;
 };
 
+template <>
+struct glz::meta<ApplyWorkspaceEditParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // The result returned from the apply workspace edit request.
 // 
 // @since 3.17 renamed from ApplyWorkspaceEditResponse
@@ -3991,6 +4963,14 @@ struct ApplyWorkspaceEditResult
     // This may be used by the server for diagnostic logging or to provide
     // a suitable error for a request that triggered the edit.
     std::optional<std::string> failure_reason;
+};
+
+template <>
+struct glz::meta<ApplyWorkspaceEditResult> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct WorkDoneProgressBegin
@@ -4020,6 +5000,14 @@ struct WorkDoneProgressBegin
     std::string title;
 };
 
+template <>
+struct glz::meta<WorkDoneProgressBegin> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct WorkDoneProgressReport
 {
     // Controls enablement state of a cancel button.
@@ -4043,6 +5031,14 @@ struct WorkDoneProgressReport
     std::optional<unsigned int> percentage;
 };
 
+template <>
+struct glz::meta<WorkDoneProgressReport> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct WorkDoneProgressEnd
 {
     std::string kind;
@@ -4051,9 +5047,25 @@ struct WorkDoneProgressEnd
     std::optional<std::string> message;
 };
 
+template <>
+struct glz::meta<WorkDoneProgressEnd> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct SetTraceParams
 {
     TraceValue value;
+};
+
+template <>
+struct glz::meta<SetTraceParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct LogTraceParams
@@ -4062,10 +5074,26 @@ struct LogTraceParams
     std::optional<std::string> verbose;
 };
 
+template <>
+struct glz::meta<LogTraceParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct CancelParams
 {
     // The request id to cancel.
     std::variant<int, std::string> id;
+};
+
+template <>
+struct glz::meta<CancelParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct ProgressParams
@@ -4074,6 +5102,14 @@ struct ProgressParams
     ProgressToken token;
     // The progress data.
     LSPAny value;
+};
+
+template <>
+struct glz::meta<ProgressParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A parameter literal used in requests to pass a text document and a position inside that
@@ -4086,10 +5122,26 @@ struct TextDocumentPositionParams
     TextDocumentIdentifier text_document;
 };
 
+template <>
+struct glz::meta<TextDocumentPositionParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct WorkDoneProgressParams
 {
     // An optional token that a server can use to report work done progress.
     std::optional<ProgressToken> work_done_token;
+};
+
+template <>
+struct glz::meta<WorkDoneProgressParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct PartialResultParams
@@ -4097,6 +5149,14 @@ struct PartialResultParams
     // An optional token that a server can use to report partial results (e.g. streaming) to
     // the client.
     std::optional<ProgressToken> partial_result_token;
+};
+
+template <>
+struct glz::meta<PartialResultParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Represents the connection of two locations. Provides additional metadata over normal {@link Location locations},
@@ -4119,6 +5179,14 @@ struct LocationLink
     std::string target_uri;
 };
 
+template <>
+struct glz::meta<LocationLink> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A range in a text document expressed as (zero-based) start and end positions.
 // 
 // If you want to specify a range that contains a line including the line ending
@@ -4138,9 +5206,25 @@ struct Range
     Position start;
 };
 
+template <>
+struct glz::meta<Range> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct ImplementationOptions
 {
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<ImplementationOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Static registration options to be returned in the initialize
@@ -4152,9 +5236,25 @@ struct StaticRegistrationOptions
     std::optional<std::string> id;
 };
 
+template <>
+struct glz::meta<StaticRegistrationOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct TypeDefinitionOptions
 {
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<TypeDefinitionOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The workspace folder change event.
@@ -4166,6 +5266,14 @@ struct WorkspaceFoldersChangeEvent
     std::vector<WorkspaceFolder> removed;
 };
 
+template <>
+struct glz::meta<WorkspaceFoldersChangeEvent> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct ConfigurationItem
 {
     // The scope to get the configuration section for.
@@ -4174,11 +5282,27 @@ struct ConfigurationItem
     std::optional<std::string> section;
 };
 
+template <>
+struct glz::meta<ConfigurationItem> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A literal to identify a text document in the client.
 struct TextDocumentIdentifier
 {
     // The text document's uri.
     std::string uri;
+};
+
+template <>
+struct glz::meta<TextDocumentIdentifier> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Represents a color in RGBA space.
@@ -4194,9 +5318,25 @@ struct Color
     double red;
 };
 
+template <>
+struct glz::meta<Color> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct DocumentColorOptions
 {
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<DocumentColorOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct FoldingRangeOptions
@@ -4204,9 +5344,25 @@ struct FoldingRangeOptions
     std::optional<bool> work_done_progress;
 };
 
+template <>
+struct glz::meta<FoldingRangeOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct DeclarationOptions
 {
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<DeclarationOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Position in a text document expressed as zero-based line and character
@@ -4247,9 +5403,25 @@ struct Position
     unsigned int line;
 };
 
+template <>
+struct glz::meta<Position> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct SelectionRangeOptions
 {
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<SelectionRangeOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Call hierarchy options used during static registration.
@@ -4258,6 +5430,14 @@ struct SelectionRangeOptions
 struct CallHierarchyOptions
 {
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<CallHierarchyOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.16.0
@@ -4273,6 +5453,14 @@ struct SemanticTokensOptions
     std::optional<bool> work_done_progress;
 };
 
+template <>
+struct glz::meta<SemanticTokensOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.16.0
 struct SemanticTokensEdit
 {
@@ -4284,9 +5472,25 @@ struct SemanticTokensEdit
     unsigned int start;
 };
 
+template <>
+struct glz::meta<SemanticTokensEdit> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct LinkedEditingRangeOptions
 {
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<LinkedEditingRangeOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Represents information on a file/folder create.
@@ -4296,6 +5500,14 @@ struct FileCreate
 {
     // A file:// URI for the location of the file/folder being created.
     std::string uri;
+};
+
+template <>
+struct glz::meta<FileCreate> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Describes textual changes on a text document. A TextDocumentEdit describes all changes
@@ -4316,6 +5528,14 @@ struct TextDocumentEdit
     OptionalVersionedTextDocumentIdentifier text_document;
 };
 
+template <>
+struct glz::meta<TextDocumentEdit> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Create file operation.
 struct CreateFile
 {
@@ -4331,6 +5551,14 @@ struct CreateFile
     std::optional<CreateFileOptions> options;
     // The resource to create.
     std::string uri;
+};
+
+template <>
+struct glz::meta<CreateFile> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Rename file operation
@@ -4352,6 +5580,14 @@ struct RenameFile
     std::optional<RenameFileOptions> options;
 };
 
+template <>
+struct glz::meta<RenameFile> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Delete file operation
 struct DeleteFile
 {
@@ -4367,6 +5603,14 @@ struct DeleteFile
     std::optional<DeleteFileOptions> options;
     // The file to delete.
     std::string uri;
+};
+
+template <>
+struct glz::meta<DeleteFile> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Additional information that describes document changes.
@@ -4385,6 +5629,14 @@ struct ChangeAnnotation
     std::optional<bool> needs_confirmation;
 };
 
+template <>
+struct glz::meta<ChangeAnnotation> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A filter to describe in which file operation requests or notifications
 // the server is interested in receiving.
 // 
@@ -4395,6 +5647,14 @@ struct FileOperationFilter
     FileOperationPattern pattern;
     // A Uri scheme like `file` or `untitled`.
     std::optional<std::string> scheme;
+};
+
+template <>
+struct glz::meta<FileOperationFilter> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Represents information on a file/folder rename.
@@ -4408,6 +5668,14 @@ struct FileRename
     std::string old_uri;
 };
 
+template <>
+struct glz::meta<FileRename> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Represents information on a file/folder delete.
 // 
 // @since 3.16.0
@@ -4417,9 +5685,25 @@ struct FileDelete
     std::string uri;
 };
 
+template <>
+struct glz::meta<FileDelete> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct MonikerOptions
 {
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<MonikerOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Type hierarchy options used during static registration.
@@ -4428,6 +5712,14 @@ struct MonikerOptions
 struct TypeHierarchyOptions
 {
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<TypeHierarchyOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.17.0
@@ -4440,6 +5732,14 @@ struct InlineValueContext
     Range stopped_location;
 };
 
+template <>
+struct glz::meta<InlineValueContext> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Provide inline value as text.
 // 
 // @since 3.17.0
@@ -4449,6 +5749,14 @@ struct InlineValueText
     Range range;
     // The text of the inline value.
     std::string text;
+};
+
+template <>
+struct glz::meta<InlineValueText> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Provide inline value through a variable lookup.
@@ -4467,6 +5775,14 @@ struct InlineValueVariableLookup
     std::optional<std::string> variable_name;
 };
 
+template <>
+struct glz::meta<InlineValueVariableLookup> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Provide an inline value through an expression evaluation.
 // If only a range is specified, the expression will be extracted from the underlying document.
 // An optional expression can be used to override the extracted expression.
@@ -4481,12 +5797,28 @@ struct InlineValueEvaluatableExpression
     Range range;
 };
 
+template <>
+struct glz::meta<InlineValueEvaluatableExpression> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Inline value options used during static registration.
 // 
 // @since 3.17.0
 struct InlineValueOptions
 {
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<InlineValueOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // An inlay hint label part allows for interactive and composite labels
@@ -4520,6 +5852,14 @@ struct InlayHintLabelPart
     std::string value;
 };
 
+template <>
+struct glz::meta<InlayHintLabelPart> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A `MarkupContent` literal represents a string value which content is interpreted base on its
 // kind flag. Currently the protocol supports `plaintext` and `markdown` as markup kinds.
 // 
@@ -4550,6 +5890,14 @@ struct MarkupContent
     std::string value;
 };
 
+template <>
+struct glz::meta<MarkupContent> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Inlay hint options used during static registration.
 // 
 // @since 3.17.0
@@ -4559,6 +5907,14 @@ struct InlayHintOptions
     // information for an inlay hint item.
     std::optional<bool> resolve_provider;
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<InlayHintOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A full diagnostic report with a set of related documents.
@@ -4584,6 +5940,14 @@ struct RelatedFullDocumentDiagnosticReport
     std::optional<std::string> result_id;
 };
 
+template <>
+struct glz::meta<RelatedFullDocumentDiagnosticReport> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // An unchanged diagnostic report with a set of related documents.
 // 
 // @since 3.17.0
@@ -4607,6 +5971,14 @@ struct RelatedUnchangedDocumentDiagnosticReport
     std::string result_id;
 };
 
+template <>
+struct glz::meta<RelatedUnchangedDocumentDiagnosticReport> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A diagnostic report with a full set of problems.
 // 
 // @since 3.17.0
@@ -4620,6 +5992,14 @@ struct FullDocumentDiagnosticReport
     // be sent on the next diagnostic request for the
     // same document.
     std::optional<std::string> result_id;
+};
+
+template <>
+struct glz::meta<FullDocumentDiagnosticReport> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A diagnostic report indicating that the last returned
@@ -4636,6 +6016,14 @@ struct UnchangedDocumentDiagnosticReport
     // A result id which will be sent on the next
     // diagnostic request for the same document.
     std::string result_id;
+};
+
+template <>
+struct glz::meta<UnchangedDocumentDiagnosticReport> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Diagnostic options.
@@ -4656,6 +6044,14 @@ struct DiagnosticOptions
     bool workspace_diagnostics;
 };
 
+template <>
+struct glz::meta<DiagnosticOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A previous result id in a workspace pull request.
 // 
 // @since 3.17.0
@@ -4666,6 +6062,14 @@ struct PreviousResultId
     std::string uri;
     // The value of the previous result id.
     std::string value;
+};
+
+template <>
+struct glz::meta<PreviousResultId> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A notebook document.
@@ -4689,6 +6093,14 @@ struct NotebookDocument
     int version;
 };
 
+template <>
+struct glz::meta<NotebookDocument> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // An item to transfer a text document from the client to the
 // server.
 struct TextDocumentItem
@@ -4702,6 +6114,14 @@ struct TextDocumentItem
     // The version number of this document (it will increase after each
     // change, including undo/redo).
     int version;
+};
+
+template <>
+struct glz::meta<TextDocumentItem> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Options specific to a notebook plus its cells
@@ -4726,6 +6146,14 @@ struct NotebookDocumentSyncOptions
     std::optional<bool> save;
 };
 
+template <>
+struct glz::meta<NotebookDocumentSyncOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A versioned notebook document identifier.
 // 
 // @since 3.17.0
@@ -4735,6 +6163,14 @@ struct VersionedNotebookDocumentIdentifier
     std::string uri;
     // The version number of this notebook document.
     int version;
+};
+
+template <>
+struct glz::meta<VersionedNotebookDocumentIdentifier> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A change event for a notebook document.
@@ -4750,6 +6186,14 @@ struct NotebookDocumentChangeEvent
     std::optional<LSPObject> metadata;
 };
 
+template <>
+struct glz::meta<NotebookDocumentChangeEvent> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A literal to identify a notebook document in the client.
 // 
 // @since 3.17.0
@@ -4757,6 +6201,14 @@ struct NotebookDocumentIdentifier
 {
     // The notebook document's uri.
     std::string uri;
+};
+
+template <>
+struct glz::meta<NotebookDocumentIdentifier> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Provides information about the context in which an inline completion was requested.
@@ -4769,6 +6221,14 @@ struct InlineCompletionContext
     std::optional<SelectedCompletionInfo> selected_completion_info;
     // Describes how the inline completion was triggered.
     InlineCompletionTriggerKind trigger_kind;
+};
+
+template <>
+struct glz::meta<InlineCompletionContext> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A string value used as a snippet is a template which allows to insert text
@@ -4789,6 +6249,14 @@ struct StringValue
     std::string value;
 };
 
+template <>
+struct glz::meta<StringValue> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Inline completion options used during static registration.
 // 
 // @since 3.18.0
@@ -4796,6 +6264,14 @@ struct StringValue
 struct InlineCompletionOptions
 {
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<InlineCompletionOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Text document content provider options.
@@ -4806,6 +6282,14 @@ struct TextDocumentContentOptions
 {
     // The schemes for which the server provides content.
     std::vector<std::string> schemes;
+};
+
+template <>
+struct glz::meta<TextDocumentContentOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // General parameters to register for a notification or to register a provider.
@@ -4820,6 +6304,14 @@ struct Registration
     std::optional<LSPAny> register_options;
 };
 
+template <>
+struct glz::meta<Registration> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // General parameters to unregister a request or notification.
 struct Unregistration
 {
@@ -4828,6 +6320,14 @@ struct Unregistration
     std::string id;
     // The method to unregister for.
     std::string method;
+};
+
+template <>
+struct glz::meta<Unregistration> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The initialize parameters
@@ -4873,31 +6373,31 @@ struct _InitializeParams
     std::optional<ProgressToken> work_done_token;
 };
 
-namespace glz {
-    template <> struct to<JSON, _InitializeParams> {
-        template <auto Opts>
-        static void op(const _InitializeParams& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "capabilities", v.capabilities,
-                "clientInfo", v.client_info,
-                "initializationOptions", v.initialization_options,
-                "locale", v.locale,
-                "rootPath", v.root_path,
-                "trace", v.trace,
-                "workDoneToken", v.work_done_token,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.process_id.has_value()) {
-                optional_fields.try_emplace("processId", *v.process_id);
-            }
-            if (v.root_uri.has_value()) {
-                optional_fields.try_emplace("rootUri", *v.root_uri);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, _InitializeParams> {
+    template <auto Opts>
+    static void op(const _InitializeParams& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "capabilities", v.capabilities,
+            "clientInfo", v.client_info,
+            "initializationOptions", v.initialization_options,
+            "locale", v.locale,
+            "rootPath", v.root_path,
+            "trace", v.trace,
+            "workDoneToken", v.work_done_token,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.process_id.has_value()) {
+            optional_fields.try_emplace("processId", *v.process_id);
         }
-    };
-}
+        if (v.root_uri.has_value()) {
+            optional_fields.try_emplace("rootUri", *v.root_uri);
+        }
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 struct WorkspaceFoldersInitializeParams
 {
     // The workspace folders configured in the client when the server starts.
@@ -4910,18 +6410,14 @@ struct WorkspaceFoldersInitializeParams
     std::optional<std::vector<WorkspaceFolder>> workspace_folders;
 };
 
-namespace glz {
-    template <> struct to<JSON, WorkspaceFoldersInitializeParams> {
-        template <auto Opts>
-        static void op(const WorkspaceFoldersInitializeParams& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "workspaceFolders", v.workspace_folders,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            serialize<JSON>::op<Opts>(obj, ctx, buffer, iter);
-        }
-    };
-}
+template <>
+struct glz::meta<WorkspaceFoldersInitializeParams> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Defines the capabilities provided by a language
 // server.
 struct ServerCapabilities
@@ -5035,6 +6531,14 @@ struct ServerCapabilities
     std::optional<std::variant<bool, WorkspaceSymbolOptions>> workspace_symbol_provider;
 };
 
+template <>
+struct glz::meta<ServerCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Information about the server
 // 
 // @since 3.15.0
@@ -5047,6 +6551,14 @@ struct ServerInfo
     std::optional<std::string> version;
 };
 
+template <>
+struct glz::meta<ServerInfo> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A text document identifier to denote a specific version of a text document.
 struct VersionedTextDocumentIdentifier
 {
@@ -5056,11 +6568,27 @@ struct VersionedTextDocumentIdentifier
     int version;
 };
 
+template <>
+struct glz::meta<VersionedTextDocumentIdentifier> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Save options.
 struct SaveOptions
 {
     // The client is supposed to include the content on save.
     std::optional<bool> include_text;
+};
+
+template <>
+struct glz::meta<SaveOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // An event describing a file change.
@@ -5070,6 +6598,14 @@ struct FileEvent
     FileChangeType type;
     // The file's uri.
     std::string uri;
+};
+
+template <>
+struct glz::meta<FileEvent> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct FileSystemWatcher
@@ -5082,6 +6618,14 @@ struct FileSystemWatcher
     // to WatchKind.Create | WatchKind.Change | WatchKind.Delete
     // which is 7.
     std::optional<WatchKind> kind;
+};
+
+template <>
+struct glz::meta<FileSystemWatcher> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Represents a diagnostic, such as a compiler error or warning. Diagnostic objects
@@ -5121,6 +6665,14 @@ struct Diagnostic
     std::optional<std::vector<DiagnosticTag>> tags;
 };
 
+template <>
+struct glz::meta<Diagnostic> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Contains additional information about the context in which a completion request is triggered.
 struct CompletionContext
 {
@@ -5129,6 +6681,14 @@ struct CompletionContext
     std::optional<std::string> trigger_character;
     // How the completion was triggered.
     CompletionTriggerKind trigger_kind;
+};
+
+template <>
+struct glz::meta<CompletionContext> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Additional details for a completion item label.
@@ -5144,6 +6704,14 @@ struct CompletionItemLabelDetails
     std::optional<std::string> detail;
 };
 
+template <>
+struct glz::meta<CompletionItemLabelDetails> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A special text edit to provide an insert and a replace operation.
 // 
 // @since 3.16.0
@@ -5155,6 +6723,14 @@ struct InsertReplaceEdit
     std::string new_text;
     // The range if the replace is requested.
     Range replace;
+};
+
+template <>
+struct glz::meta<InsertReplaceEdit> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // In many cases the items of an actual completion result share the same
@@ -5194,6 +6770,14 @@ struct CompletionItemDefaults
     // 
     // @since 3.17.0
     std::optional<InsertTextMode> insert_text_mode;
+};
+
+template <>
+struct glz::meta<CompletionItemDefaults> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Specifies how fields from a completion item should be combined with those
@@ -5256,6 +6840,14 @@ struct CompletionItemApplyKinds
     std::optional<ApplyKind> data;
 };
 
+template <>
+struct glz::meta<CompletionItemApplyKinds> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Completion options.
 struct CompletionOptions
 {
@@ -5288,10 +6880,26 @@ struct CompletionOptions
     std::optional<bool> work_done_progress;
 };
 
+template <>
+struct glz::meta<CompletionOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Hover options.
 struct HoverOptions
 {
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<HoverOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Additional information about the context in which a signature help request was triggered.
@@ -5315,6 +6923,14 @@ struct SignatureHelpContext
     std::optional<std::string> trigger_character;
     // Action that caused signature help to be triggered.
     SignatureHelpTriggerKind trigger_kind;
+};
+
+template <>
+struct glz::meta<SignatureHelpContext> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Represents the signature of something callable. A signature
@@ -5344,21 +6960,14 @@ struct SignatureInformation
     std::optional<std::vector<ParameterInformation>> parameters;
 };
 
-namespace glz {
-    template <> struct to<JSON, SignatureInformation> {
-        template <auto Opts>
-        static void op(const SignatureInformation& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "activeParameter", v.active_parameter,
-                "documentation", v.documentation,
-                "label", v.label,
-                "parameters", v.parameters,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            serialize<JSON>::op<Opts>(obj, ctx, buffer, iter);
-        }
-    };
-}
+template <>
+struct glz::meta<SignatureInformation> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Server Capabilities for a {@link SignatureHelpRequest}.
 struct SignatureHelpOptions
 {
@@ -5374,10 +6983,26 @@ struct SignatureHelpOptions
     std::optional<bool> work_done_progress;
 };
 
+template <>
+struct glz::meta<SignatureHelpOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Server Capabilities for a {@link DefinitionRequest}.
 struct DefinitionOptions
 {
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<DefinitionOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Value-object that contains additional information when
@@ -5388,16 +7013,40 @@ struct ReferenceContext
     bool include_declaration;
 };
 
+template <>
+struct glz::meta<ReferenceContext> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Reference options.
 struct ReferenceOptions
 {
     std::optional<bool> work_done_progress;
 };
 
+template <>
+struct glz::meta<ReferenceOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Provider options for a {@link DocumentHighlightRequest}.
 struct DocumentHighlightOptions
 {
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<DocumentHighlightOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A base for all symbol information.
@@ -5418,6 +7067,14 @@ struct BaseSymbolInformation
     std::optional<std::vector<SymbolTag>> tags;
 };
 
+template <>
+struct glz::meta<BaseSymbolInformation> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Provider options for a {@link DocumentSymbolRequest}.
 struct DocumentSymbolOptions
 {
@@ -5427,6 +7084,14 @@ struct DocumentSymbolOptions
     // @since 3.16.0
     std::optional<std::string> label;
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<DocumentSymbolOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Contains additional diagnostic information about the context in which
@@ -5450,6 +7115,14 @@ struct CodeActionContext
     std::optional<CodeActionTriggerKind> trigger_kind;
 };
 
+template <>
+struct glz::meta<CodeActionContext> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Captures why the code action is currently disabled.
 // 
 // @since 3.18.0
@@ -5459,6 +7132,14 @@ struct CodeActionDisabled
     // 
     // This is displayed in the code actions UI.
     std::string reason;
+};
+
+template <>
+struct glz::meta<CodeActionDisabled> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Provider options for a {@link CodeActionRequest}.
@@ -5493,12 +7174,28 @@ struct CodeActionOptions
     std::optional<bool> work_done_progress;
 };
 
+template <>
+struct glz::meta<CodeActionOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Location with only uri and does not include range.
 // 
 // @since 3.18.0
 struct LocationUriOnly
 {
     std::string uri;
+};
+
+template <>
+struct glz::meta<LocationUriOnly> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Server capabilities for a {@link WorkspaceSymbolRequest}.
@@ -5512,6 +7209,14 @@ struct WorkspaceSymbolOptions
     std::optional<bool> work_done_progress;
 };
 
+template <>
+struct glz::meta<WorkspaceSymbolOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Code Lens provider options of a {@link CodeLensRequest}.
 struct CodeLensOptions
 {
@@ -5520,12 +7225,28 @@ struct CodeLensOptions
     std::optional<bool> work_done_progress;
 };
 
+template <>
+struct glz::meta<CodeLensOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Provider options for a {@link DocumentLinkRequest}.
 struct DocumentLinkOptions
 {
     // Document links have a resolve provider as well.
     std::optional<bool> resolve_provider;
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<DocumentLinkOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Value-object describing what options formatting should use.
@@ -5549,10 +7270,26 @@ struct FormattingOptions
     std::optional<bool> trim_trailing_whitespace;
 };
 
+template <>
+struct glz::meta<FormattingOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Provider options for a {@link DocumentFormattingRequest}.
 struct DocumentFormattingOptions
 {
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<DocumentFormattingOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Provider options for a {@link DocumentRangeFormattingRequest}.
@@ -5566,6 +7303,14 @@ struct DocumentRangeFormattingOptions
     std::optional<bool> work_done_progress;
 };
 
+template <>
+struct glz::meta<DocumentRangeFormattingOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Provider options for a {@link DocumentOnTypeFormattingRequest}.
 struct DocumentOnTypeFormattingOptions
 {
@@ -5573,6 +7318,14 @@ struct DocumentOnTypeFormattingOptions
     std::string first_trigger_character;
     // More trigger characters.
     std::optional<std::vector<std::string>> more_trigger_character;
+};
+
+template <>
+struct glz::meta<DocumentOnTypeFormattingOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Provider options for a {@link RenameRequest}.
@@ -5585,11 +7338,27 @@ struct RenameOptions
     std::optional<bool> work_done_progress;
 };
 
+template <>
+struct glz::meta<RenameOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct PrepareRenamePlaceholder
 {
     std::string placeholder;
     Range range;
+};
+
+template <>
+struct glz::meta<PrepareRenamePlaceholder> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.18.0
@@ -5598,12 +7367,28 @@ struct PrepareRenameDefaultBehavior
     bool default_behavior;
 };
 
+template <>
+struct glz::meta<PrepareRenameDefaultBehavior> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // The server capabilities of a {@link ExecuteCommandRequest}.
 struct ExecuteCommandOptions
 {
     // The commands to be executed on the server
     std::vector<std::string> commands;
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<ExecuteCommandOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Additional data about a workspace edit.
@@ -5616,6 +7401,14 @@ struct WorkspaceEditMetadata
     std::optional<bool> is_refactoring;
 };
 
+template <>
+struct glz::meta<WorkspaceEditMetadata> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.16.0
 struct SemanticTokensLegend
 {
@@ -5625,6 +7418,14 @@ struct SemanticTokensLegend
     std::vector<std::string> token_types;
 };
 
+template <>
+struct glz::meta<SemanticTokensLegend> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Semantic tokens options to support deltas for full documents
 // 
 // @since 3.18.0
@@ -5632,6 +7433,14 @@ struct SemanticTokensFullDelta
 {
     // The server supports deltas for full documents.
     std::optional<bool> delta;
+};
+
+template <>
+struct glz::meta<SemanticTokensFullDelta> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A text document identifier to optionally denote a specific version of a text document.
@@ -5647,22 +7456,22 @@ struct OptionalVersionedTextDocumentIdentifier
     std::optional<int> version;
 };
 
-namespace glz {
-    template <> struct to<JSON, OptionalVersionedTextDocumentIdentifier> {
-        template <auto Opts>
-        static void op(const OptionalVersionedTextDocumentIdentifier& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "uri", v.uri,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.version.has_value()) {
-                optional_fields.try_emplace("version", *v.version);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, OptionalVersionedTextDocumentIdentifier> {
+    template <auto Opts>
+    static void op(const OptionalVersionedTextDocumentIdentifier& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "uri", v.uri,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.version.has_value()) {
+            optional_fields.try_emplace("version", *v.version);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // A special text edit with an additional change annotation.
 // 
 // @since 3.16.0.
@@ -5676,6 +7485,14 @@ struct AnnotatedTextEdit
     // The range of the text document to be manipulated. To insert
     // text into a document create a range where start === end.
     Range range;
+};
+
+template <>
+struct glz::meta<AnnotatedTextEdit> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // An interactive text edit.
@@ -5692,6 +7509,14 @@ struct SnippetTextEdit
     StringValue snippet;
 };
 
+template <>
+struct glz::meta<SnippetTextEdit> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A generic resource operation.
 struct ResourceOperation
 {
@@ -5703,6 +7528,14 @@ struct ResourceOperation
     std::string kind;
 };
 
+template <>
+struct glz::meta<ResourceOperation> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Options to create a file.
 struct CreateFileOptions
 {
@@ -5710,6 +7543,14 @@ struct CreateFileOptions
     std::optional<bool> ignore_if_exists;
     // Overwrite existing file. Overwrite wins over `ignoreIfExists`
     std::optional<bool> overwrite;
+};
+
+template <>
+struct glz::meta<CreateFileOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Rename file options
@@ -5721,6 +7562,14 @@ struct RenameFileOptions
     std::optional<bool> overwrite;
 };
 
+template <>
+struct glz::meta<RenameFileOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Delete file options
 struct DeleteFileOptions
 {
@@ -5728,6 +7577,14 @@ struct DeleteFileOptions
     std::optional<bool> ignore_if_not_exists;
     // Delete the content recursively if a folder is denoted.
     std::optional<bool> recursive;
+};
+
+template <>
+struct glz::meta<DeleteFileOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A pattern to describe in which file operation requests or notifications
@@ -5752,6 +7609,14 @@ struct FileOperationPattern
     std::optional<FileOperationPatternOptions> options;
 };
 
+template <>
+struct glz::meta<FileOperationPattern> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A full document diagnostic report for a workspace diagnostic result.
 // 
 // @since 3.17.0
@@ -5772,25 +7637,25 @@ struct WorkspaceFullDocumentDiagnosticReport
     std::optional<int> version;
 };
 
-namespace glz {
-    template <> struct to<JSON, WorkspaceFullDocumentDiagnosticReport> {
-        template <auto Opts>
-        static void op(const WorkspaceFullDocumentDiagnosticReport& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "items", v.items,
-                "kind", v.kind,
-                "resultId", v.result_id,
-                "uri", v.uri,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.version.has_value()) {
-                optional_fields.try_emplace("version", *v.version);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, WorkspaceFullDocumentDiagnosticReport> {
+    template <auto Opts>
+    static void op(const WorkspaceFullDocumentDiagnosticReport& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "items", v.items,
+            "kind", v.kind,
+            "resultId", v.result_id,
+            "uri", v.uri,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.version.has_value()) {
+            optional_fields.try_emplace("version", *v.version);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // An unchanged document diagnostic report for a workspace diagnostic result.
 // 
 // @since 3.17.0
@@ -5811,24 +7676,24 @@ struct WorkspaceUnchangedDocumentDiagnosticReport
     std::optional<int> version;
 };
 
-namespace glz {
-    template <> struct to<JSON, WorkspaceUnchangedDocumentDiagnosticReport> {
-        template <auto Opts>
-        static void op(const WorkspaceUnchangedDocumentDiagnosticReport& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
-            auto obj = glz::obj{
-                "kind", v.kind,
-                "resultId", v.result_id,
-                "uri", v.uri,
-            };
-            std::map<std::string_view, glz::json_t> optional_fields;
-            if (v.version.has_value()) {
-                optional_fields.try_emplace("version", *v.version);
-            }
-            auto merged = glz::merge{ obj, map };
-            serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+template <>
+struct glz::to<glz::JSON, WorkspaceUnchangedDocumentDiagnosticReport> {
+    template <auto Opts>
+    static void op(const WorkspaceUnchangedDocumentDiagnosticReport& v, is_context auto&& ctx, auto&& buffer, auto&& iter) noexcept {
+        auto obj = glz::obj{
+            "kind", v.kind,
+            "resultId", v.result_id,
+            "uri", v.uri,
+        };
+        std::map<std::string_view, glz::json_t> optional_fields;
+        if (v.version.has_value()) {
+            optional_fields.try_emplace("version", *v.version);
         }
-    };
-}
+        auto merged = glz::merge{ obj, optional_fields };
+        serialize<JSON>::op<Opts>(merged, ctx, buffer, iter);
+    }
+};
+
 // A notebook cell.
 // 
 // A cell's document URI must be unique across ALL notebook
@@ -5852,6 +7717,14 @@ struct NotebookCell
     std::optional<LSPObject> metadata;
 };
 
+template <>
+struct glz::meta<NotebookCell> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct NotebookDocumentFilterWithNotebook
 {
@@ -5863,6 +7736,14 @@ struct NotebookDocumentFilterWithNotebook
     std::variant<std::string, NotebookDocumentFilter> notebook;
 };
 
+template <>
+struct glz::meta<NotebookDocumentFilterWithNotebook> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct NotebookDocumentFilterWithCells
 {
@@ -5872,6 +7753,14 @@ struct NotebookDocumentFilterWithCells
     // value is provided it matches against the
     // notebook type. '*' matches every notebook.
     std::optional<std::variant<std::string, NotebookDocumentFilter>> notebook;
+};
+
+template <>
+struct glz::meta<NotebookDocumentFilterWithCells> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Cell changes to a notebook document.
@@ -5889,6 +7778,14 @@ struct NotebookDocumentCellChanges
     std::optional<std::vector<NotebookDocumentCellContentChanges>> text_content;
 };
 
+template <>
+struct glz::meta<NotebookDocumentCellChanges> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Describes the currently selected completion item.
 // 
 // @since 3.18.0
@@ -5901,6 +7798,14 @@ struct SelectedCompletionInfo
     std::string text;
 };
 
+template <>
+struct glz::meta<SelectedCompletionInfo> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Information about the client
 // 
 // @since 3.15.0
@@ -5911,6 +7816,14 @@ struct ClientInfo
     std::string name;
     // The client's version as defined by the client.
     std::optional<std::string> version;
+};
+
+template <>
+struct glz::meta<ClientInfo> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Defines the capabilities provided by the client.
@@ -5934,6 +7847,14 @@ struct ClientCapabilities
     std::optional<WorkspaceClientCapabilities> workspace;
 };
 
+template <>
+struct glz::meta<ClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct TextDocumentSyncOptions
 {
     // Change notifications are sent to the server. See TextDocumentSyncKind.None, TextDocumentSyncKind.Full
@@ -5951,6 +7872,14 @@ struct TextDocumentSyncOptions
     // If present will save wait until requests are sent to the server. If omitted the request should not be
     // sent.
     std::optional<bool> will_save_wait_until;
+};
+
+template <>
+struct glz::meta<TextDocumentSyncOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Defines workspace specific capabilities of the server.
@@ -5973,6 +7902,14 @@ struct WorkspaceOptions
     std::optional<WorkspaceFoldersServerCapabilities> workspace_folders;
 };
 
+template <>
+struct glz::meta<WorkspaceOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct TextDocumentContentChangePartial
 {
@@ -5986,11 +7923,27 @@ struct TextDocumentContentChangePartial
     std::string text;
 };
 
+template <>
+struct glz::meta<TextDocumentContentChangePartial> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct TextDocumentContentChangeWholeDocument
 {
     // The new text of the whole document.
     std::string text;
+};
+
+template <>
+struct glz::meta<TextDocumentContentChangeWholeDocument> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Structure to capture a description for an error code.
@@ -6000,6 +7953,14 @@ struct CodeDescription
 {
     // An URI to open with more information about the diagnostic error.
     std::string href;
+};
+
+template <>
+struct glz::meta<CodeDescription> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Represents a related message and source code location for a diagnostic. This should be
@@ -6013,6 +7974,14 @@ struct DiagnosticRelatedInformation
     std::string message;
 };
 
+template <>
+struct glz::meta<DiagnosticRelatedInformation> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Edit range variant that includes ranges for insert and replace operations.
 // 
 // @since 3.18.0
@@ -6020,6 +7989,14 @@ struct EditRangeWithInsertReplace
 {
     Range insert;
     Range replace;
+};
+
+template <>
+struct glz::meta<EditRangeWithInsertReplace> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.18.0
@@ -6033,12 +8010,28 @@ struct ServerCompletionItemOptions
     std::optional<bool> label_details_support;
 };
 
+template <>
+struct glz::meta<ServerCompletionItemOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 // @deprecated use MarkupContent instead.
 struct MarkedStringWithLanguage
 {
     std::string language;
     std::string value;
+};
+
+template <>
+struct glz::meta<MarkedStringWithLanguage> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Represents a parameter of a callable-signature. A parameter can
@@ -6063,6 +8056,14 @@ struct ParameterInformation
     std::variant<std::string, std::tuple<unsigned int, unsigned int>> label;
 };
 
+template <>
+struct glz::meta<ParameterInformation> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Documentation for a class of code actions.
 // 
 // @since 3.18.0
@@ -6079,6 +8080,14 @@ struct CodeActionKindDocumentation
     // refactorings are returned. If the kind if more specific, such as `CodeActionKind.RefactorExtract`, the
     // documentation will only be shown when extract refactoring code actions are returned.
     CodeActionKind kind;
+};
+
+template <>
+struct glz::meta<CodeActionKindDocumentation> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A notebook cell text document filter denotes a cell text
@@ -6099,6 +8108,14 @@ struct NotebookCellTextDocumentFilter
     std::variant<std::string, NotebookDocumentFilter> notebook;
 };
 
+template <>
+struct glz::meta<NotebookCellTextDocumentFilter> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Matching options for the file operation pattern.
 // 
 // @since 3.16.0
@@ -6106,6 +8123,14 @@ struct FileOperationPatternOptions
 {
     // The pattern should be matched ignoring casing.
     std::optional<bool> ignore_case;
+};
+
+template <>
+struct glz::meta<FileOperationPatternOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct ExecutionSummary
@@ -6119,10 +8144,26 @@ struct ExecutionSummary
     std::optional<bool> success;
 };
 
+template <>
+struct glz::meta<ExecutionSummary> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct NotebookCellLanguage
 {
     std::string language;
+};
+
+template <>
+struct glz::meta<NotebookCellLanguage> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Structural changes to cells in a notebook document.
@@ -6138,6 +8179,14 @@ struct NotebookDocumentCellChangeStructure
     std::optional<std::vector<TextDocumentItem>> did_open;
 };
 
+template <>
+struct glz::meta<NotebookDocumentCellChangeStructure> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Content changes to a cell in a notebook document.
 // 
 // @since 3.18.0
@@ -6145,6 +8194,14 @@ struct NotebookDocumentCellContentChanges
 {
     std::vector<TextDocumentContentChangeEvent> changes;
     VersionedTextDocumentIdentifier document;
+};
+
+template <>
+struct glz::meta<NotebookDocumentCellContentChanges> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Workspace specific client capabilities.
@@ -6211,6 +8268,14 @@ struct WorkspaceClientCapabilities
     // 
     // @since 3.6.0
     std::optional<bool> workspace_folders;
+};
+
+template <>
+struct glz::meta<WorkspaceClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Text document specific client capabilities.
@@ -6316,6 +8381,14 @@ struct TextDocumentClientCapabilities
     std::optional<TypeHierarchyClientCapabilities> type_hierarchy;
 };
 
+template <>
+struct glz::meta<TextDocumentClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Capabilities specific to the notebook document support.
 // 
 // @since 3.17.0
@@ -6325,6 +8398,14 @@ struct NotebookDocumentClientCapabilities
     // 
     // @since 3.17.0
     NotebookDocumentSyncClientCapabilities synchronization;
+};
+
+template <>
+struct glz::meta<NotebookDocumentClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct WindowClientCapabilities
@@ -6347,6 +8428,14 @@ struct WindowClientCapabilities
     // 
     // @since 3.15.0
     std::optional<bool> work_done_progress;
+};
+
+template <>
+struct glz::meta<WindowClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // General client capabilities.
@@ -6390,6 +8479,14 @@ struct GeneralClientCapabilities
     std::optional<StaleRequestSupportOptions> stale_request_support;
 };
 
+template <>
+struct glz::meta<GeneralClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct WorkspaceFoldersServerCapabilities
 {
     // Whether the server wants to receive workspace folder
@@ -6402,6 +8499,14 @@ struct WorkspaceFoldersServerCapabilities
     std::optional<std::variant<std::string, bool>> change_notifications;
     // The server has support for workspace folders
     std::optional<bool> supported;
+};
+
+template <>
+struct glz::meta<WorkspaceFoldersServerCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Options for notifications/requests for user operations on files.
@@ -6423,6 +8528,14 @@ struct FileOperationOptions
     std::optional<FileOperationRegistrationOptions> will_rename;
 };
 
+template <>
+struct glz::meta<FileOperationOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A relative pattern is a helper to construct glob patterns that are matched
 // relatively to a base URI. The common value for a `baseUri` is a workspace
 // folder root, but it can be another absolute URI as well.
@@ -6435,6 +8548,14 @@ struct RelativePattern
     std::variant<WorkspaceFolder, std::string> base_uri;
     // The actual glob pattern;
     Pattern pattern;
+};
+
+template <>
+struct glz::meta<RelativePattern> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A document filter where `language` is required field.
@@ -6454,6 +8575,14 @@ struct TextDocumentFilterLanguage
     std::optional<std::string> scheme;
 };
 
+template <>
+struct glz::meta<TextDocumentFilterLanguage> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A document filter where `scheme` is required field.
 // 
 // @since 3.18.0
@@ -6469,6 +8598,14 @@ struct TextDocumentFilterScheme
     std::optional<GlobPattern> pattern;
     // A Uri {@link Uri.scheme scheme}, like `file` or `untitled`.
     std::string scheme;
+};
+
+template <>
+struct glz::meta<TextDocumentFilterScheme> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A document filter where `pattern` is required field.
@@ -6488,6 +8625,14 @@ struct TextDocumentFilterPattern
     std::optional<std::string> scheme;
 };
 
+template <>
+struct glz::meta<TextDocumentFilterPattern> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A notebook document filter where `notebookType` is required field.
 // 
 // @since 3.18.0
@@ -6499,6 +8644,14 @@ struct NotebookDocumentFilterNotebookType
     std::optional<GlobPattern> pattern;
     // A Uri {@link Uri.scheme scheme}, like `file` or `untitled`.
     std::optional<std::string> scheme;
+};
+
+template <>
+struct glz::meta<NotebookDocumentFilterNotebookType> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A notebook document filter where `scheme` is required field.
@@ -6514,6 +8667,14 @@ struct NotebookDocumentFilterScheme
     std::string scheme;
 };
 
+template <>
+struct glz::meta<NotebookDocumentFilterScheme> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // A notebook document filter where `pattern` is required field.
 // 
 // @since 3.18.0
@@ -6525,6 +8686,14 @@ struct NotebookDocumentFilterPattern
     GlobPattern pattern;
     // A Uri {@link Uri.scheme scheme}, like `file` or `untitled`.
     std::optional<std::string> scheme;
+};
+
+template <>
+struct glz::meta<NotebookDocumentFilterPattern> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // A change describing how to move a `NotebookCell`
@@ -6539,6 +8708,14 @@ struct NotebookCellArrayChange
     unsigned int delete_count;
     // The start oftest of the cell that changed.
     unsigned int start;
+};
+
+template <>
+struct glz::meta<NotebookCellArrayChange> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct WorkspaceEditClientCapabilities
@@ -6580,10 +8757,26 @@ struct WorkspaceEditClientCapabilities
     std::optional<bool> snippet_edit_support;
 };
 
+template <>
+struct glz::meta<WorkspaceEditClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct DidChangeConfigurationClientCapabilities
 {
     // Did change configuration notification supports dynamic registration.
     std::optional<bool> dynamic_registration;
+};
+
+template <>
+struct glz::meta<DidChangeConfigurationClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct DidChangeWatchedFilesClientCapabilities
@@ -6597,6 +8790,14 @@ struct DidChangeWatchedFilesClientCapabilities
     // 
     // @since 3.17.0
     std::optional<bool> relative_pattern_support;
+};
+
+template <>
+struct glz::meta<DidChangeWatchedFilesClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Client capabilities for a {@link WorkspaceSymbolRequest}.
@@ -6619,11 +8820,27 @@ struct WorkspaceSymbolClientCapabilities
     std::optional<ClientSymbolTagOptions> tag_support;
 };
 
+template <>
+struct glz::meta<WorkspaceSymbolClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // The client capabilities of a {@link ExecuteCommandRequest}.
 struct ExecuteCommandClientCapabilities
 {
     // Execute command supports dynamic registration.
     std::optional<bool> dynamic_registration;
+};
+
+template <>
+struct glz::meta<ExecuteCommandClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.16.0
@@ -6639,6 +8856,14 @@ struct SemanticTokensWorkspaceClientCapabilities
     std::optional<bool> refresh_support;
 };
 
+template <>
+struct glz::meta<SemanticTokensWorkspaceClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.16.0
 struct CodeLensWorkspaceClientCapabilities
 {
@@ -6650,6 +8875,14 @@ struct CodeLensWorkspaceClientCapabilities
     // useful for situation where a server for example detect a project wide
     // change that requires such a calculation.
     std::optional<bool> refresh_support;
+};
+
+template <>
+struct glz::meta<CodeLensWorkspaceClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Capabilities relating to events from file operations by the user in the client.
@@ -6676,6 +8909,14 @@ struct FileOperationClientCapabilities
     std::optional<bool> will_rename;
 };
 
+template <>
+struct glz::meta<FileOperationClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Client workspace capabilities specific to inline values.
 // 
 // @since 3.17.0
@@ -6689,6 +8930,14 @@ struct InlineValueWorkspaceClientCapabilities
     // useful for situation where a server for example detects a project wide
     // change that requires such a calculation.
     std::optional<bool> refresh_support;
+};
+
+template <>
+struct glz::meta<InlineValueWorkspaceClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Client workspace capabilities specific to inlay hints.
@@ -6706,6 +8955,14 @@ struct InlayHintWorkspaceClientCapabilities
     std::optional<bool> refresh_support;
 };
 
+template <>
+struct glz::meta<InlayHintWorkspaceClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Workspace client capabilities specific to diagnostic pull requests.
 // 
 // @since 3.17.0
@@ -6719,6 +8976,14 @@ struct DiagnosticWorkspaceClientCapabilities
     // is useful for situation where a server for example detects a project wide
     // change that requires such a calculation.
     std::optional<bool> refresh_support;
+};
+
+template <>
+struct glz::meta<DiagnosticWorkspaceClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Client workspace capabilities specific to folding ranges
@@ -6740,6 +9005,14 @@ struct FoldingRangeWorkspaceClientCapabilities
     std::optional<bool> refresh_support;
 };
 
+template <>
+struct glz::meta<FoldingRangeWorkspaceClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Client capabilities for a text document content provider.
 // 
 // @since 3.18.0
@@ -6748,6 +9021,14 @@ struct TextDocumentContentClientCapabilities
 {
     // Text document content provider supports dynamic registration.
     std::optional<bool> dynamic_registration;
+};
+
+template <>
+struct glz::meta<TextDocumentContentClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct TextDocumentSyncClientCapabilities
@@ -6764,12 +9045,28 @@ struct TextDocumentSyncClientCapabilities
     std::optional<bool> will_save_wait_until;
 };
 
+template <>
+struct glz::meta<TextDocumentSyncClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct TextDocumentFilterClientCapabilities
 {
     // The client supports Relative Patterns.
     // 
     // @since 3.18.0
     std::optional<bool> relative_pattern_support;
+};
+
+template <>
+struct glz::meta<TextDocumentFilterClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Completion client capabilities
@@ -6797,6 +9094,14 @@ struct CompletionClientCapabilities
     std::optional<InsertTextMode> insert_text_mode;
 };
 
+template <>
+struct glz::meta<CompletionClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct HoverClientCapabilities
 {
     // Client supports the following content formats for the content
@@ -6804,6 +9109,14 @@ struct HoverClientCapabilities
     std::optional<std::vector<MarkupKind>> content_format;
     // Whether hover supports dynamic registration.
     std::optional<bool> dynamic_registration;
+};
+
+template <>
+struct glz::meta<HoverClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Client Capabilities for a {@link SignatureHelpRequest}.
@@ -6823,6 +9136,14 @@ struct SignatureHelpClientCapabilities
     std::optional<ClientSignatureInformationOptions> signature_information;
 };
 
+template <>
+struct glz::meta<SignatureHelpClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.14.0
 struct DeclarationClientCapabilities
 {
@@ -6834,6 +9155,14 @@ struct DeclarationClientCapabilities
     std::optional<bool> link_support;
 };
 
+template <>
+struct glz::meta<DeclarationClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Client Capabilities for a {@link DefinitionRequest}.
 struct DefinitionClientCapabilities
 {
@@ -6843,6 +9172,14 @@ struct DefinitionClientCapabilities
     // 
     // @since 3.14.0
     std::optional<bool> link_support;
+};
+
+template <>
+struct glz::meta<DefinitionClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Since 3.6.0
@@ -6858,6 +9195,14 @@ struct TypeDefinitionClientCapabilities
     std::optional<bool> link_support;
 };
 
+template <>
+struct glz::meta<TypeDefinitionClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.6.0
 struct ImplementationClientCapabilities
 {
@@ -6871,6 +9216,14 @@ struct ImplementationClientCapabilities
     std::optional<bool> link_support;
 };
 
+template <>
+struct glz::meta<ImplementationClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Client Capabilities for a {@link ReferencesRequest}.
 struct ReferenceClientCapabilities
 {
@@ -6878,11 +9231,27 @@ struct ReferenceClientCapabilities
     std::optional<bool> dynamic_registration;
 };
 
+template <>
+struct glz::meta<ReferenceClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Client Capabilities for a {@link DocumentHighlightRequest}.
 struct DocumentHighlightClientCapabilities
 {
     // Whether document highlight supports dynamic registration.
     std::optional<bool> dynamic_registration;
+};
+
+template <>
+struct glz::meta<DocumentHighlightClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Client Capabilities for a {@link DocumentSymbolRequest}.
@@ -6906,6 +9275,14 @@ struct DocumentSymbolClientCapabilities
     // 
     // @since 3.16.0
     std::optional<ClientSymbolTagOptions> tag_support;
+};
+
+template <>
+struct glz::meta<DocumentSymbolClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The Client Capabilities of a {@link CodeActionRequest}.
@@ -6959,6 +9336,14 @@ struct CodeActionClientCapabilities
     std::optional<CodeActionTagOptions> tag_support;
 };
 
+template <>
+struct glz::meta<CodeActionClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // The client capabilities  of a {@link CodeLensRequest}.
 struct CodeLensClientCapabilities
 {
@@ -6969,6 +9354,14 @@ struct CodeLensClientCapabilities
     // 
     // @since 3.18.0
     std::optional<ClientCodeLensResolveOptions> resolve_support;
+};
+
+template <>
+struct glz::meta<CodeLensClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The client capabilities of a {@link DocumentLinkRequest}.
@@ -6982,6 +9375,14 @@ struct DocumentLinkClientCapabilities
     std::optional<bool> tooltip_support;
 };
 
+template <>
+struct glz::meta<DocumentLinkClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct DocumentColorClientCapabilities
 {
     // Whether implementation supports dynamic registration. If this is set to `true`
@@ -6990,11 +9391,27 @@ struct DocumentColorClientCapabilities
     std::optional<bool> dynamic_registration;
 };
 
+template <>
+struct glz::meta<DocumentColorClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Client capabilities of a {@link DocumentFormattingRequest}.
 struct DocumentFormattingClientCapabilities
 {
     // Whether formatting supports dynamic registration.
     std::optional<bool> dynamic_registration;
+};
+
+template <>
+struct glz::meta<DocumentFormattingClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Client capabilities of a {@link DocumentRangeFormattingRequest}.
@@ -7009,11 +9426,27 @@ struct DocumentRangeFormattingClientCapabilities
     std::optional<bool> ranges_support;
 };
 
+template <>
+struct glz::meta<DocumentRangeFormattingClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Client capabilities of a {@link DocumentOnTypeFormattingRequest}.
 struct DocumentOnTypeFormattingClientCapabilities
 {
     // Whether on type formatting supports dynamic registration.
     std::optional<bool> dynamic_registration;
+};
+
+template <>
+struct glz::meta<DocumentOnTypeFormattingClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 struct RenameClientCapabilities
@@ -7042,6 +9475,14 @@ struct RenameClientCapabilities
     std::optional<PrepareSupportDefaultBehavior> prepare_support_default_behavior;
 };
 
+template <>
+struct glz::meta<RenameClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct FoldingRangeClientCapabilities
 {
     // Whether implementation supports dynamic registration for folding range
@@ -7067,12 +9508,28 @@ struct FoldingRangeClientCapabilities
     std::optional<unsigned int> range_limit;
 };
 
+template <>
+struct glz::meta<FoldingRangeClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 struct SelectionRangeClientCapabilities
 {
     // Whether implementation supports dynamic registration for selection range providers. If this is set to `true`
     // the client supports the new `SelectionRangeRegistrationOptions` return value for the corresponding server
     // capability as well.
     std::optional<bool> dynamic_registration;
+};
+
+template <>
+struct glz::meta<SelectionRangeClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The publish diagnostic client capabilities.
@@ -7102,6 +9559,14 @@ struct PublishDiagnosticsClientCapabilities
     std::optional<bool> version_support;
 };
 
+template <>
+struct glz::meta<PublishDiagnosticsClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.16.0
 struct CallHierarchyClientCapabilities
 {
@@ -7109,6 +9574,14 @@ struct CallHierarchyClientCapabilities
     // the client supports the new `(TextDocumentRegistrationOptions & StaticRegistrationOptions)`
     // return value for the corresponding server capability as well.
     std::optional<bool> dynamic_registration;
+};
+
+template <>
+struct glz::meta<CallHierarchyClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.16.0
@@ -7157,6 +9630,14 @@ struct SemanticTokensClientCapabilities
     std::vector<std::string> token_types;
 };
 
+template <>
+struct glz::meta<SemanticTokensClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Client capabilities for the linked editing range request.
 // 
 // @since 3.16.0
@@ -7166,6 +9647,14 @@ struct LinkedEditingRangeClientCapabilities
     // the client supports the new `(TextDocumentRegistrationOptions & StaticRegistrationOptions)`
     // return value for the corresponding server capability as well.
     std::optional<bool> dynamic_registration;
+};
+
+template <>
+struct glz::meta<LinkedEditingRangeClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Client capabilities specific to the moniker request.
@@ -7179,6 +9668,14 @@ struct MonikerClientCapabilities
     std::optional<bool> dynamic_registration;
 };
 
+template <>
+struct glz::meta<MonikerClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.17.0
 struct TypeHierarchyClientCapabilities
 {
@@ -7188,6 +9685,14 @@ struct TypeHierarchyClientCapabilities
     std::optional<bool> dynamic_registration;
 };
 
+template <>
+struct glz::meta<TypeHierarchyClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Client capabilities specific to inline values.
 // 
 // @since 3.17.0
@@ -7195,6 +9700,14 @@ struct InlineValueClientCapabilities
 {
     // Whether implementation supports dynamic registration for inline value providers.
     std::optional<bool> dynamic_registration;
+};
+
+template <>
+struct glz::meta<InlineValueClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Inlay hint client capabilities.
@@ -7207,6 +9720,14 @@ struct InlayHintClientCapabilities
     // Indicates which properties a client can resolve lazily on an inlay
     // hint.
     std::optional<ClientInlayHintResolveOptions> resolve_support;
+};
+
+template <>
+struct glz::meta<InlayHintClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Client capabilities specific to diagnostic pull requests.
@@ -7239,6 +9760,14 @@ struct DiagnosticClientCapabilities
     std::optional<ClientDiagnosticsTagOptions> tag_support;
 };
 
+template <>
+struct glz::meta<DiagnosticClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Client capabilities specific to inline completions.
 // 
 // @since 3.18.0
@@ -7247,6 +9776,14 @@ struct InlineCompletionClientCapabilities
 {
     // Whether implementation supports dynamic registration for inline completion providers.
     std::optional<bool> dynamic_registration;
+};
+
+template <>
+struct glz::meta<InlineCompletionClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Notebook specific client capabilities.
@@ -7263,11 +9800,27 @@ struct NotebookDocumentSyncClientCapabilities
     std::optional<bool> execution_summary_support;
 };
 
+template <>
+struct glz::meta<NotebookDocumentSyncClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Show message request client capabilities
 struct ShowMessageRequestClientCapabilities
 {
     // Capabilities specific to the `MessageActionItem` type.
     std::optional<ClientShowMessageActionItemOptions> message_action_item;
+};
+
+template <>
+struct glz::meta<ShowMessageRequestClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Client capabilities for the showDocument request.
@@ -7278,6 +9831,14 @@ struct ShowDocumentClientCapabilities
     // The client has support for the showDocument
     // request.
     bool support;
+};
+
+template <>
+struct glz::meta<ShowDocumentClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.18.0
@@ -7291,6 +9852,14 @@ struct StaleRequestSupportOptions
     std::vector<std::string> retry_on_content_modified;
 };
 
+template <>
+struct glz::meta<StaleRequestSupportOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // Client capabilities specific to regular expressions.
 // 
 // @since 3.16.0
@@ -7300,6 +9869,14 @@ struct RegularExpressionsClientCapabilities
     RegularExpressionEngineKind engine;
     // The engine's version.
     std::optional<std::string> version;
+};
+
+template <>
+struct glz::meta<RegularExpressionsClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Client capabilities specific to the used markdown parser.
@@ -7318,6 +9895,14 @@ struct MarkdownClientCapabilities
     std::optional<std::string> version;
 };
 
+template <>
+struct glz::meta<MarkdownClientCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct ChangeAnnotationsSupportOptions
 {
@@ -7325,6 +9910,14 @@ struct ChangeAnnotationsSupportOptions
     // for instance all edits labelled with "Changes in Strings" would
     // be a tree node.
     std::optional<bool> groups_on_label;
+};
+
+template <>
+struct glz::meta<ChangeAnnotationsSupportOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.18.0
@@ -7341,11 +9934,27 @@ struct ClientSymbolKindOptions
     std::optional<std::vector<SymbolKind>> value_set;
 };
 
+template <>
+struct glz::meta<ClientSymbolKindOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct ClientSymbolTagOptions
 {
     // The tags supported by the client.
     std::vector<SymbolTag> value_set;
+};
+
+template <>
+struct glz::meta<ClientSymbolTagOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.18.0
@@ -7354,6 +9963,14 @@ struct ClientSymbolResolveOptions
     // The properties that a client can resolve lazily. Usually
     // `location.range`
     std::vector<std::string> properties;
+};
+
+template <>
+struct glz::meta<ClientSymbolResolveOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.18.0
@@ -7406,6 +10023,14 @@ struct ClientCompletionItemOptions
     std::optional<CompletionItemTagOptions> tag_support;
 };
 
+template <>
+struct glz::meta<ClientCompletionItemOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct ClientCompletionItemOptionsKind
 {
@@ -7418,6 +10043,14 @@ struct ClientCompletionItemOptionsKind
     // the completion items kinds from `Text` to `Reference` as defined in
     // the initial version of the protocol.
     std::optional<std::vector<CompletionItemKind>> value_set;
+};
+
+template <>
+struct glz::meta<ClientCompletionItemOptionsKind> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // The client supports the following `CompletionList` specific
@@ -7449,6 +10082,14 @@ struct CompletionListCapabilities
     std::optional<std::vector<std::string>> item_defaults;
 };
 
+template <>
+struct glz::meta<CompletionListCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct ClientSignatureInformationOptions
 {
@@ -7471,12 +10112,28 @@ struct ClientSignatureInformationOptions
     std::optional<ClientSignatureParameterInformationOptions> parameter_information;
 };
 
+template <>
+struct glz::meta<ClientSignatureInformationOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct ClientCodeActionLiteralOptions
 {
     // The code action kind is support with the following value
     // set.
     ClientCodeActionKindOptions code_action_kind;
+};
+
+template <>
+struct glz::meta<ClientCodeActionLiteralOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.18.0
@@ -7486,6 +10143,14 @@ struct ClientCodeActionResolveOptions
     std::vector<std::string> properties;
 };
 
+template <>
+struct glz::meta<ClientCodeActionResolveOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0 - proposed
 struct CodeActionTagOptions
 {
@@ -7493,11 +10158,27 @@ struct CodeActionTagOptions
     std::vector<CodeActionTag> value_set;
 };
 
+template <>
+struct glz::meta<CodeActionTagOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct ClientCodeLensResolveOptions
 {
     // The properties that a client can resolve lazily.
     std::vector<std::string> properties;
+};
+
+template <>
+struct glz::meta<ClientCodeLensResolveOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.18.0
@@ -7510,6 +10191,14 @@ struct ClientFoldingRangeKindOptions
     std::optional<std::vector<FoldingRangeKind>> value_set;
 };
 
+template <>
+struct glz::meta<ClientFoldingRangeKindOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct ClientFoldingRangeOptions
 {
@@ -7518,6 +10207,14 @@ struct ClientFoldingRangeOptions
     // 
     // @since 3.17.0
     std::optional<bool> collapsed_text;
+};
+
+template <>
+struct glz::meta<ClientFoldingRangeOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // General diagnostics capabilities for pull and push model.
@@ -7542,6 +10239,14 @@ struct DiagnosticsCapabilities
     std::optional<ClientDiagnosticsTagOptions> tag_support;
 };
 
+template <>
+struct glz::meta<DiagnosticsCapabilities> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct ClientSemanticTokensRequestOptions
 {
@@ -7553,11 +10258,27 @@ struct ClientSemanticTokensRequestOptions
     std::optional<std::variant<bool, LSPObject>> range;
 };
 
+template <>
+struct glz::meta<ClientSemanticTokensRequestOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct ClientInlayHintResolveOptions
 {
     // The properties that a client can resolve lazily.
     std::vector<std::string> properties;
+};
+
+template <>
+struct glz::meta<ClientInlayHintResolveOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.18.0
@@ -7569,11 +10290,27 @@ struct ClientShowMessageActionItemOptions
     std::optional<bool> additional_properties_support;
 };
 
+template <>
+struct glz::meta<ClientShowMessageActionItemOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct CompletionItemTagOptions
 {
     // The tags supported by the client.
     std::vector<CompletionItemTag> value_set;
+};
+
+template <>
+struct glz::meta<CompletionItemTagOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.18.0
@@ -7583,10 +10320,26 @@ struct ClientCompletionItemResolveOptions
     std::vector<std::string> properties;
 };
 
+template <>
+struct glz::meta<ClientCompletionItemResolveOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct ClientCompletionItemInsertTextModeOptions
 {
     std::vector<InsertTextMode> value_set;
+};
+
+template <>
+struct glz::meta<ClientCompletionItemInsertTextModeOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.18.0
@@ -7599,6 +10352,14 @@ struct ClientSignatureParameterInformationOptions
     std::optional<bool> label_offset_support;
 };
 
+template <>
+struct glz::meta<ClientSignatureParameterInformationOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct ClientCodeActionKindOptions
 {
@@ -7609,11 +10370,27 @@ struct ClientCodeActionKindOptions
     std::vector<CodeActionKind> value_set;
 };
 
+template <>
+struct glz::meta<ClientCodeActionKindOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
+};
+
 // @since 3.18.0
 struct ClientDiagnosticsTagOptions
 {
     // The tags supported by the client.
     std::vector<DiagnosticTag> value_set;
+};
+
+template <>
+struct glz::meta<ClientDiagnosticsTagOptions> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // @since 3.18.0
@@ -7622,6 +10399,14 @@ struct ClientSemanticTokensRequestFullDelta
     // The client will send the `textDocument/semanticTokens/full/delta` request if
     // the server provides a corresponding handler.
     std::optional<bool> delta;
+};
+
+template <>
+struct glz::meta<ClientSemanticTokensRequestFullDelta> {
+    static constexpr std::string rename_key(const std::string_view key)
+    {
+        return to_camel_case(key);
+    }
 };
 
 // Message Direction
